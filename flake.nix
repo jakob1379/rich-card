@@ -21,7 +21,6 @@
       devShells = forEachSystem (pkgs: {
         default = pkgs.mkShell {
           packages = [
-            pkgs.bat
             pkgs.python314
             pkgs.uv
           ];

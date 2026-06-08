@@ -2,10 +2,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from html import escape
-import re
-import shutil
-import subprocess
 from textwrap import wrap
+
+from pygments import lex
+from pygments.lexers import get_lexer_by_name, guess_lexer_for_filename
+from pygments.style import Style
+from pygments.styles import get_style_by_name
+from pygments.token import (
+    Comment,
+    Error,
+    Generic,
+    Keyword,
+    Literal,
+    Name,
+    Number,
+    Operator,
+    Punctuation,
+    String,
+    Text,
+    Token,
+)
+from pygments.util import ClassNotFound
 
 BACKGROUND_PRESETS: dict[str, tuple[str, str, str]] = {
     "aurora": ("#f7fbff", "#bdefff", "#48c7df"),
@@ -19,24 +36,6 @@ CARD_FILL = "#26282b"
 CARD_STROKE = "#3b3e43"
 MUTED_TEXT = "#8d9199"
 DEFAULT_TEXT = "#f0f2f5"
-ANSI_16 = {
-    30: "#000000",
-    31: "#800000",
-    32: "#008000",
-    33: "#808000",
-    34: "#000080",
-    35: "#800080",
-    36: "#008080",
-    37: "#c0c0c0",
-    90: "#808080",
-    91: "#ff0000",
-    92: "#00ff00",
-    93: "#ffff00",
-    94: "#0000ff",
-    95: "#ff00ff",
-    96: "#00ffff",
-    97: "#ffffff",
-}
 FONT_STACK = "'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace"
 CHAR_WIDTH = 9.4
 LINE_HEIGHT = 21
@@ -45,7 +44,57 @@ INNER_PADDING_X = 34
 INNER_PADDING_Y = 30
 TITLE_BAR_HEIGHT = 50
 CAPTION_GAP = 20
-ANSI_RE = re.compile(r"\x1b\[([0-9;]*)m")
+
+
+class MonokaiExtendedStyle(Style):
+    background_color = CARD_FILL
+    default_style = ""
+    styles = {
+        Token: "#f8f8f2",
+        Text: "#f8f8f2",
+        Error: "#f8f8f2 bg:#f92672",
+        Comment: "italic #75715e",
+        Keyword: "#f92672",
+        Keyword.Constant: "#66d9ef",
+        Keyword.Declaration: "#66d9ef",
+        Keyword.Namespace: "#f92672",
+        Keyword.Pseudo: "#66d9ef",
+        Keyword.Reserved: "#66d9ef",
+        Keyword.Type: "#66d9ef",
+        Name: "#f8f8f2",
+        Name.Attribute: "#a6e22e",
+        Name.Builtin: "#a6e22e",
+        Name.Builtin.Pseudo: "#f8f8f2",
+        Name.Class: "#a6e22e",
+        Name.Constant: "#66d9ef",
+        Name.Decorator: "#a6e22e",
+        Name.Exception: "#a6e22e",
+        Name.Function: "#a6e22e",
+        Name.Label: "#f8f8f2",
+        Name.Namespace: "#f8f8f2",
+        Name.Tag: "#f92672",
+        Name.Variable: "#f8f8f2",
+        Name.Variable.Class: "#f8f8f2",
+        Name.Variable.Global: "#f8f8f2",
+        Name.Variable.Instance: "#f8f8f2",
+        Literal: "#ae81ff",
+        Number: "#ae81ff",
+        Operator: "#f92672",
+        Operator.Word: "#f92672",
+        Punctuation: "#f8f8f2",
+        String: "#e6db74",
+        String.Regex: "#fd971f",
+        Generic.Deleted: "#f92672",
+        Generic.Emph: "italic #f8f8f2",
+        Generic.Error: "#f92672",
+        Generic.Heading: "bold #f8f8f2",
+        Generic.Inserted: "#a6e22e",
+        Generic.Output: "#75715e",
+        Generic.Prompt: "#75715e",
+        Generic.Strong: "bold #f8f8f2",
+        Generic.Subheading: "bold #75715e",
+        Generic.Traceback: "#f92672",
+    }
 
 
 class UnknownStyleError(ValueError):
@@ -55,14 +104,14 @@ class UnknownStyleError(ValueError):
 @dataclass(frozen=True)
 class CardOptions:
     lexer: str | None = None
-    theme: str = "Monokai Extended"
+    theme: str = "monokai-extended"
     file_name: str | None = None
     title: str | None = None
     caption: str | None = None
     background: str = "aurora"
     width: int = 1080
     padding: int = 72
-    radius: int = 12
+    radius: int = 30
     line_numbers: bool = False
     word_wrap: bool = False
     tab_size: int = 4
@@ -117,82 +166,45 @@ def render_code_card_svg(code: str, options: CardOptions) -> str:
     return "\n".join(parts)
 
 
-def list_bat_themes() -> list[str]:
-    bat = _bat_executable()
-    result = subprocess.run(
-        [bat, "--list-themes"],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    return [line for line in result.stdout.splitlines() if line]
-
-
 def _highlight_lines(code: str, options: CardOptions) -> list[list[Fragment]]:
     if not code:
         return [[Fragment("", DEFAULT_TEXT)]]
 
-    ansi = _run_bat(code, options)
-    return _parse_ansi_fragments(ansi)
-
-
-def _run_bat(code: str, options: CardOptions) -> str:
-    bat = _bat_executable()
-    command = [
-        bat,
-        "--paging=never",
-        "--color=always",
-        "--style=plain",
-        "--theme",
-        options.theme,
-        "--tabs",
-        str(options.tab_size),
-    ]
-    if options.lexer is not None:
-        command.extend(["--language", options.lexer])
-    elif options.file_name is not None:
-        command.extend(["--file-name", options.file_name])
-    else:
-        command.extend(["--language", "python"])
-
-    try:
-        result = subprocess.run(
-            command,
-            input=code,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        message = exc.stderr.strip() or "bat failed to highlight the source."
-        raise UnknownStyleError(message) from exc
-    return result.stdout
-
-
-def _bat_executable() -> str:
-    bat = shutil.which("bat") or shutil.which("batcat")
-    if bat is None:
-        raise UnknownStyleError("bat is required for syntax highlighting but was not found on PATH.")
-    return bat
-
-
-def _parse_ansi_fragments(text: str) -> list[list[Fragment]]:
-    color = DEFAULT_TEXT
-    bold = False
-    italic = False
+    lexer = _load_lexer(code, options.lexer, options.file_name)
+    style = _load_style(options.theme)
     lines: list[list[Fragment]] = [[]]
-    cursor = 0
-    for match in ANSI_RE.finditer(text):
-        chunk = text[cursor:match.start()]
-        _append_text(lines, chunk, Fragment("", color, bold, italic))
-        color, bold, italic = _apply_sgr(match.group(1), color, bold, italic)
-        cursor = match.end()
-    _append_text(lines, text[cursor:], Fragment("", color, bold, italic))
+    for token_type, value in lex(code.expandtabs(options.tab_size), lexer):
+        fragment_style = _token_style(token_type, style)
+        _append_text(lines, value, fragment_style)
     if lines and not lines[-1]:
         lines.pop()
     return lines or [[Fragment("", DEFAULT_TEXT)]]
+
+
+def _load_lexer(code: str, lexer_name: str | None, file_name: str | None):
+    try:
+        if lexer_name is not None:
+            return get_lexer_by_name(lexer_name)
+        if file_name is not None:
+            return guess_lexer_for_filename(file_name, code)
+        return get_lexer_by_name("python")
+    except ClassNotFound as exc:
+        raise UnknownStyleError(f"Unknown Pygments lexer '{lexer_name or file_name}'.") from exc
+
+
+def _load_style(theme: str):
+    if theme == "monokai-extended":
+        return MonokaiExtendedStyle
+    try:
+        return get_style_by_name(theme)
+    except ClassNotFound as exc:
+        raise UnknownStyleError(f"Unknown Pygments style '{theme}'. Run `rich-cards --list-themes`.") from exc
+
+
+def _token_style(token_type, style) -> Fragment:
+    token_style = style.style_for_token(token_type)
+    color = f"#{token_style['color']}" if token_style["color"] else DEFAULT_TEXT
+    return Fragment("", color, bool(token_style["bold"]), bool(token_style["italic"]))
 
 
 def _append_text(lines: list[list[Fragment]], text: str, style: Fragment) -> None:
@@ -202,52 +214,6 @@ def _append_text(lines: list[list[Fragment]], text: str, style: Fragment) -> Non
             lines.append([])
         if chunk:
             lines[-1].append(Fragment(chunk, style.color, style.bold, style.italic))
-
-
-def _apply_sgr(raw_codes: str, color: str, bold: bool, italic: bool) -> tuple[str, bool, bool]:
-    codes = [int(code) for code in raw_codes.split(";") if code] or [0]
-    index = 0
-    while index < len(codes):
-        code = codes[index]
-        if code == 0:
-            color = DEFAULT_TEXT
-            bold = False
-            italic = False
-        elif code == 1:
-            bold = True
-        elif code == 3:
-            italic = True
-        elif code == 22:
-            bold = False
-        elif code == 23:
-            italic = False
-        elif code == 39:
-            color = DEFAULT_TEXT
-        elif code == 38 and index + 4 < len(codes) and codes[index + 1] == 2:
-            red, green, blue = codes[index + 2 : index + 5]
-            color = f"#{red:02x}{green:02x}{blue:02x}"
-            index += 4
-        elif code == 38 and index + 2 < len(codes) and codes[index + 1] == 5:
-            color = _ansi_256(codes[index + 2])
-            index += 2
-        elif code in ANSI_16:
-            color = ANSI_16[code]
-        index += 1
-    return color, bold, italic
-
-
-def _ansi_256(value: int) -> str:
-    if value < 16:
-        return ANSI_16.get(value + 30 if value < 8 else value + 82, DEFAULT_TEXT)
-    if value < 232:
-        value -= 16
-        red = value // 36
-        green = (value % 36) // 6
-        blue = value % 6
-        levels = [0, 95, 135, 175, 215, 255]
-        return f"#{levels[red]:02x}{levels[green]:02x}{levels[blue]:02x}"
-    gray = 8 + ((value - 232) * 10)
-    return f"#{gray:02x}{gray:02x}{gray:02x}"
 
 
 def _prepare_lines(

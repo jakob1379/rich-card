@@ -25,7 +25,7 @@ class RichCardsCliTest(unittest.TestCase):
                 "--lexer",
                 "python",
                 "--theme",
-                "TwoDark",
+                "monokai-extended",
                 "--output",
                 str(self.output),
             ],
@@ -37,7 +37,7 @@ class RichCardsCliTest(unittest.TestCase):
         self.assertIn("<svg", svg)
         self.assertIn("print", svg)
         self.assertIn("card-bg", svg)
-        self.assertIn("#98c379", svg)
+        self.assertIn("#a6e22e", svg)
         self.assertIn('stroke-width="3"', svg)
         self.assertIn('rx="30"', svg)
         self.assertIn('xml:space="preserve"', svg)
@@ -125,11 +125,12 @@ class RichCardsCliTest(unittest.TestCase):
         self.assertIn("inline_value", svg)
         self.assertNotIn("from_file", svg)
 
-    def test_list_themes_lists_bat_styles(self) -> None:
+    def test_list_themes_lists_custom_and_pygments_styles(self) -> None:
         result = self.runner.invoke(app, ["--list-themes"])
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn("TwoDark", result.output)
+        self.assertIn("monokai-extended", result.output)
+        self.assertIn("monokai", result.output)
 
     def test_source_uses_typer_path_validation(self) -> None:
         result = self.runner.invoke(app, ["missing.py", "--output", str(self.output)])
@@ -167,7 +168,7 @@ class RichCardsCliTest(unittest.TestCase):
         )
 
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("Unknown bat theme", result.output)
+        self.assertIn("Unknown Pygments style", result.output)
 
 
 if __name__ == "__main__":

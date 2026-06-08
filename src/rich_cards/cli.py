@@ -5,11 +5,13 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import typer
+from pygments.lexers import get_lexer_by_name
+from pygments.styles import get_all_styles, get_style_by_name
+from pygments.util import ClassNotFound
 
 from rich_cards.svg import (
     CardOptions,
     UnknownStyleError,
-    list_bat_themes,
     render_code_card_svg,
 )
 
@@ -36,12 +38,22 @@ def _read_source(source: Path | None, content: str | None) -> tuple[str, str | N
 
 
 def _theme_callback(value: str) -> str:
+    if value == "monokai-extended":
+        return value
     try:
-        themes = set(list_bat_themes())
-    except UnknownStyleError as exc:
-        raise typer.BadParameter(str(exc)) from exc
-    if value not in themes:
-        raise typer.BadParameter(f"Unknown bat theme '{value}'. Run `rich-cards --list-themes`.")
+        get_style_by_name(value)
+    except ClassNotFound as exc:
+        raise typer.BadParameter(f"Unknown Pygments style '{value}'. Run `rich-cards --list-themes`.") from exc
+    return value
+
+
+def _lexer_callback(value: str | None) -> str | None:
+    if value is None:
+        return None
+    try:
+        get_lexer_by_name(value)
+    except ClassNotFound as exc:
+        raise typer.BadParameter(f"Unknown Pygments lexer '{value}'.") from exc
     return value
 
 
@@ -77,7 +89,8 @@ def render(
         typer.Option(
             "--lexer",
             "-l",
-            help="bat language name or extension. Defaults to source filename inference, or python for stdin.",
+            callback=_lexer_callback,
+            help="Pygments lexer name. Defaults to source filename inference, or python for stdin.",
         ),
     ] = None,
     theme: Annotated[
@@ -85,9 +98,9 @@ def render(
         typer.Option(
             "--theme",
             callback=_theme_callback,
-            help="bat theme name. See `rich-cards --list-themes`.",
+            help="Pygments theme name. See `rich-cards --list-themes`.",
         ),
-    ] = "TwoDark",
+    ] = "monokai-extended",
     title: Annotated[
         str | None,
         typer.Option("--title", help="Optional card title shown in the card chrome."),
@@ -126,11 +139,11 @@ def render(
     ] = 4,
     list_themes: Annotated[
         bool,
-        typer.Option("--list-themes", help="List bat syntax themes and exit."),
+        typer.Option("--list-themes", help="List syntax themes and exit."),
     ] = False,
 ) -> None:
     if list_themes:
-        for theme_name in list_bat_themes():
+        for theme_name in ["monokai-extended", *sorted(get_all_styles())]:
             typer.echo(theme_name)
         return
 
