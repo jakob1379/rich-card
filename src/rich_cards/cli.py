@@ -103,7 +103,7 @@ def render(
     ] = "monokai-extended",
     title: Annotated[
         str | None,
-        typer.Option("--title", help="Optional card title shown in the card chrome."),
+        typer.Option("--title", "-t", help="Optional card title shown in the card chrome."),
     ] = None,
     caption: Annotated[
         str | None,
@@ -124,7 +124,7 @@ def render(
     radius: Annotated[
         int,
         typer.Option("--radius", min=4, max=80, help="Rounded card corner radius in pixels."),
-    ] = 30,
+    ] = 12,
     line_numbers: Annotated[
         bool,
         typer.Option("--line-numbers/--no-line-numbers", help="Show line numbers."),

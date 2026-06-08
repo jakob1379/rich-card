@@ -95,6 +95,22 @@ class RichCardsCliTest(unittest.TestCase):
         self.assertIn(">1 │ </tspan>", svg)
         self.assertIn(">2 │ </tspan>", svg)
 
+    def test_short_title_option_renders_title(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "print('hello')",
+                "-t",
+                "demo.py",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn(">demo.py</text>", self.output.read_text(encoding="utf-8"))
+
     def test_stdin_writes_svg(self) -> None:
         result = self.runner.invoke(
             app,
