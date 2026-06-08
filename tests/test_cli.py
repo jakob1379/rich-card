@@ -7,7 +7,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from rich_cards.cli import BackgroundPreset, app
-from rich_cards.svg import BACKGROUND_PRESETS
+from rich_cards.svg import BACKGROUND_PRESETS, Fragment, _wrap_fragments
 
 
 class RichCardsCliTest(unittest.TestCase):
@@ -110,7 +110,7 @@ class RichCardsCliTest(unittest.TestCase):
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
-        self.assertIn(">demo.py</text>", self.output.read_text(encoding="utf-8"))
+        self.assertIn(">demo.py</tspan></text>", self.output.read_text(encoding="utf-8"))
 
     def test_common_short_options_render_card(self) -> None:
         result = self.runner.invoke(
@@ -146,6 +146,74 @@ class RichCardsCliTest(unittest.TestCase):
         self.assertIn(">1 │ </tspan>", svg)
         self.assertIn("sample caption", svg)
         self.assertIn("#0b1026", svg)
+
+    def test_svg_renders_emoji_with_font_fallbacks(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "print('🚀✨')  # shipped ✅",
+                "--title",
+                "Release 🚀",
+                "--caption",
+                "Ready ✅",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("🚀✨", svg)
+        self.assertIn("Release ", svg)
+        self.assertIn("Ready ", svg)
+        self.assertIn(">🚀</tspan>", svg)
+        self.assertIn(">✅</tspan>", svg)
+        self.assertIn("Noto Color Emoji", svg)
+        self.assertIn('fill="#ffd447"', svg)
+        self.assertIn('fill="#34c759"', svg)
+
+    def test_stdin_defaults_to_plain_text_and_preserves_heart_emoji(self) -> None:
+        result = self.runner.invoke(
+            app,
+            ["--output", str(self.output)],
+            input='echo "I print beautifully ❤️"\nI print beautifully ❤️\n',
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("I print beautifully ", svg)
+        self.assertIn(">❤️</tspan>", svg)
+        self.assertIn('font-family="\'Apple Color Emoji\'', svg)
+        self.assertIn('fill-opacity="0"', svg)
+        self.assertIn('fill="#ff3b57"', svg)
+        self.assertNotIn('fill="#f8f8f2" font-family="\'Apple Color Emoji\'', svg)
+        self.assertNotIn("<tspan fill=\"#a6e22e\">print</tspan>", svg)
+        self.assertNotIn(">❤</tspan><tspan", svg)
+
+    def test_explicit_python_lexer_preserves_heart_emoji(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "value = '❤️'",
+                "--lexer",
+                "python",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("❤️", svg)
+        self.assertNotIn(">❤</tspan><tspan", svg)
+
+    def test_word_wrap_keeps_compound_emoji_intact(self) -> None:
+        lines = _wrap_fragments([Fragment("aaaaaaaaaaaa👩‍💻b", "#fff")], width=13)
+
+        self.assertEqual("".join(fragment.text for fragment in lines[0]), "aaaaaaaaaaaa")
+        self.assertEqual("".join(fragment.text for fragment in lines[1]), "👩‍💻b")
 
     def test_stdin_writes_svg(self) -> None:
         result = self.runner.invoke(

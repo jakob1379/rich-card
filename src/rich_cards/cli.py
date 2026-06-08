@@ -96,7 +96,7 @@ def render(
             "--lexer",
             "-l",
             callback=_lexer_callback,
-            help="Pygments lexer name. Defaults to source filename inference, or python for stdin.",
+            help="Pygments lexer name. Defaults to source filename inference, or plain text for stdin.",
         ),
     ] = None,
     theme: Annotated[

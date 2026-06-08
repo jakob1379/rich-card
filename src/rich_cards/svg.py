@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from html import escape
-from textwrap import wrap
+from unicodedata import category
 
 from pygments import lex
 from pygments.lexers import get_lexer_by_name, guess_lexer_for_filename
@@ -23,6 +23,7 @@ from pygments.token import (
     Token,
 )
 from pygments.util import ClassNotFound
+from rich.cells import cell_len, split_graphemes
 
 BACKGROUND_PRESETS: dict[str, tuple[str, str, str]] = {
     "aurora": ("#f7fbff", "#bdefff", "#48c7df"),
@@ -52,7 +53,14 @@ CARD_FILL = "#26282b"
 CARD_STROKE = "#3b3e43"
 MUTED_TEXT = "#8d9199"
 DEFAULT_TEXT = "#f0f2f5"
-FONT_STACK = "'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace"
+FONT_STACK = (
+    "'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, "
+    "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', monospace"
+)
+EMOJI_FONT_STACK = (
+    "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Twemoji Mozilla', "
+    "'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace"
+)
 CHAR_WIDTH = 9.4
 LINE_HEIGHT = 21
 FONT_SIZE = 15
@@ -175,8 +183,9 @@ def render_code_card_svg(code: str, options: CardOptions) -> str:
     if options.caption:
         caption_y = code_y + code_height + CAPTION_GAP
         parts.append(
-            f'<text x="{code_x}" y="{caption_y}" fill="{MUTED_TEXT}" '
-            f'font-family="{FONT_STACK}" font-size="13">{escape(options.caption)}</text>'
+            f'<text x="{code_x}" y="{caption_y}" font-family="{FONT_STACK}" font-size="13">'
+            f'{_inline_tspans(options.caption, MUTED_TEXT)}'
+            "</text>"
         )
     parts.append("</svg>")
     return "\n".join(parts)
@@ -203,7 +212,7 @@ def _load_lexer(code: str, lexer_name: str | None, file_name: str | None):
             return get_lexer_by_name(lexer_name)
         if file_name is not None:
             return guess_lexer_for_filename(file_name, code)
-        return get_lexer_by_name("python")
+        return get_lexer_by_name("text")
     except ClassNotFound as exc:
         raise UnknownStyleError(f"Unknown Pygments lexer '{lexer_name or file_name}'.") from exc
 
@@ -229,7 +238,7 @@ def _append_text(lines: list[list[Fragment]], text: str, style: Fragment) -> Non
         if index > 0:
             lines.append([])
         if chunk:
-            lines[-1].append(Fragment(chunk, style.color, style.bold, style.italic))
+            _append_fragment(lines[-1], style, chunk)
 
 
 def _prepare_lines(
@@ -255,40 +264,38 @@ def _prepare_lines(
 
 def _wrap_fragments(fragments: list[Fragment], width: int) -> list[list[Fragment]]:
     text = "".join(fragment.text for fragment in fragments)
-    if len(text) <= width:
+    if cell_len(text) <= width:
         return [fragments]
 
-    wrapped_text = wrap(text, width=width, replace_whitespace=False, drop_whitespace=False) or [""]
     wrapped: list[list[Fragment]] = []
-    cursor = 0
-    flat = [(fragment, start, start + len(fragment.text)) for start, fragment in _fragment_offsets(fragments)]
-    for line_text in wrapped_text:
-        line_end = cursor + len(line_text)
-        line: list[Fragment] = []
-        for fragment, start, end in flat:
-            overlap_start = max(start, cursor)
-            overlap_end = min(end, line_end)
-            if overlap_start < overlap_end:
-                text_start = overlap_start - start
-                text_end = overlap_end - start
-                line.append(
-                    Fragment(
-                        fragment.text[text_start:text_end],
-                        fragment.color,
-                        bold=fragment.bold,
-                        italic=fragment.italic,
-                    )
-                )
-        wrapped.append(line)
-        cursor = line_end
-    return wrapped
-
-
-def _fragment_offsets(fragments: list[Fragment]):
-    cursor = 0
+    line: list[Fragment] = []
+    line_width = 0
     for fragment in fragments:
-        yield cursor, fragment
-        cursor += len(fragment.text)
+        spans, _total_width = split_graphemes(fragment.text)
+        for start, end, grapheme_width in spans:
+            if grapheme_width and line and line_width + grapheme_width > width:
+                wrapped.append(line)
+                line = []
+                line_width = 0
+            _append_fragment(line, fragment, fragment.text[start:end])
+            line_width += grapheme_width
+    if line:
+        wrapped.append(line)
+    return wrapped or [[]]
+
+
+def _append_fragment(line: list[Fragment], template: Fragment, text: str) -> None:
+    if not text:
+        return
+    if line and _same_style(line[-1], template):
+        previous = line[-1]
+        line[-1] = Fragment(previous.text + text, previous.color, previous.bold, previous.italic)
+        return
+    line.append(Fragment(text, template.color, bold=template.bold, italic=template.italic))
+
+
+def _same_style(left: Fragment, right: Fragment) -> bool:
+    return left.color == right.color and left.bold == right.bold and left.italic == right.italic
 
 
 def _svg_open(width: int, height: int) -> str:
@@ -320,8 +327,10 @@ def _title_bar(x: int, y: int, width: int, title: str | None) -> str:
     label = ""
     if title:
         label = (
-            f'<text x="{x + width / 2:.1f}" y="{y + 31}" fill="{MUTED_TEXT}" '
-            f'font-family="{FONT_STACK}" font-size="13" text-anchor="middle">{escape(title)}</text>'
+            f'<text x="{x + width / 2:.1f}" y="{y + 31}" '
+            f'font-family="{FONT_STACK}" font-size="13" text-anchor="middle">'
+            f'{_inline_tspans(title, MUTED_TEXT)}'
+            "</text>"
         )
     rule = f'<line x1="{x}" y1="{y + TITLE_BAR_HEIGHT}" x2="{x + width}" y2="{y + TITLE_BAR_HEIGHT}" stroke="#34373c"/>'
     return "\n".join([*dots, label, rule])
@@ -331,20 +340,125 @@ def _code_lines(lines: list[list[Fragment]], x: int, y: int) -> str:
     output: list[str] = []
     for index, line in enumerate(lines):
         line_y = y + (index * LINE_HEIGHT)
-        spans: list[str] = []
-        for fragment in line:
-            if not fragment.text:
-                continue
-            attrs = [f'fill="{fragment.color}"']
-            if fragment.bold:
-                attrs.append('font-weight="700"')
-            if fragment.italic:
-                attrs.append('font-style="italic"')
-            spans.append(f'<tspan {" ".join(attrs)}>{escape(fragment.text)}</tspan>')
+        spans, overlays = _line_markup(line, x, line_y)
         output.append(
             f'<text x="{x}" y="{line_y}" font-family="{FONT_STACK}" '
             f'font-size="{FONT_SIZE}" xml:space="preserve">'
             f'{"".join(spans)}'
             "</text>"
         )
+        output.extend(overlays)
     return "\n".join(output)
+
+
+def _line_markup(line: list[Fragment], x: int, y: int) -> tuple[list[str], list[str]]:
+    spans: list[str] = []
+    overlays: list[str] = []
+    cell_offset = 0
+    for fragment in line:
+        if not fragment.text:
+            continue
+        spans.extend(_fragment_tspans(fragment))
+        for start, end, grapheme_width in split_graphemes(fragment.text)[0]:
+            grapheme = fragment.text[start:end]
+            overlay = _emoji_overlay(grapheme, x + (cell_offset * CHAR_WIDTH), y, grapheme_width)
+            if overlay:
+                overlays.append(overlay)
+            cell_offset += grapheme_width
+    return spans, overlays
+
+
+def _fragment_tspans(fragment: Fragment) -> list[str]:
+    spans: list[str] = []
+    text = ""
+    emoji = False
+    for start, end, _grapheme_width in split_graphemes(fragment.text)[0]:
+        grapheme = fragment.text[start:end]
+        grapheme_is_emoji = _is_emoji_grapheme(grapheme)
+        if text and grapheme_is_emoji != emoji:
+            spans.append(_tspan(text, fragment, emoji))
+            text = ""
+        text += grapheme
+        emoji = grapheme_is_emoji
+    if text:
+        spans.append(_tspan(text, fragment, emoji))
+    return spans
+
+
+def _inline_tspans(text: str, color: str) -> str:
+    return "".join(_fragment_tspans(Fragment(text, color)))
+
+
+def _tspan(text: str, fragment: Fragment, emoji: bool) -> str:
+    if emoji:
+        attrs = [
+            f'font-family="{EMOJI_FONT_STACK}"',
+            'style="font-variant-emoji: emoji;"',
+        ]
+        if _has_color_overlay(text):
+            attrs.append('fill-opacity="0"')
+    else:
+        attrs = [f'fill="{fragment.color}"']
+    if fragment.bold and not emoji:
+        attrs.append('font-weight="700"')
+    if fragment.italic and not emoji:
+        attrs.append('font-style="italic"')
+    return f'<tspan {" ".join(attrs)}>{escape(text)}</tspan>'
+
+
+def _is_emoji_grapheme(text: str) -> bool:
+    if "\ufe0f" in text or "\u200d" in text:
+        return True
+    for character in text:
+        codepoint = ord(character)
+        if 0x1F000 <= codepoint <= 0x1FAFF:
+            return True
+        if 0x2600 <= codepoint <= 0x27BF and category(character) == "So":
+            return True
+    return False
+
+
+def _has_color_overlay(text: str) -> bool:
+    return all(_emoji_svg(text[start:end]) for start, end, _width in split_graphemes(text)[0])
+
+
+def _emoji_overlay(text: str, x: float, baseline_y: int, cells: int) -> str:
+    svg = _emoji_svg(text)
+    if not svg:
+        return ""
+
+    size = FONT_SIZE + 2
+    slot_width = max(size, cells * CHAR_WIDTH)
+    image_x = x + ((slot_width - size) / 2)
+    image_y = baseline_y - FONT_SIZE + 1
+    scale = size / 32
+    return f'<g transform="translate({image_x:.1f} {image_y:.1f}) scale({scale:.3f})">{svg}</g>'
+
+
+def _emoji_svg(text: str) -> str:
+    normalized = text.replace("\ufe0f", "")
+    if normalized in {"❤", "♥"}:
+        return (
+            '<path fill="#ff3b57" d="M23.6 4.8c-2.8 0-5.2 1.5-6.6 '
+            '3.7-1.4-2.2-3.8-3.7-6.6-3.7C6.2 4.8 3 8 3 12.1c0 '
+            '7.1 14 15.1 14 15.1s14-8 14-15.1c0-4.1-3.2-7.3-7.4-7.3z"/>'
+        )
+    if normalized == "✅":
+        return (
+            '<circle cx="16" cy="16" r="14" fill="#34c759"/>'
+            '<path fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" '
+            'stroke-linejoin="round" d="M8.5 16.5 13.5 21 23.5 10.5"/>'
+        )
+    if normalized == "✨":
+        return (
+            '<path fill="#ffd447" d="M16 2 19.6 12.4 30 16l-10.4 3.6L16 30l-3.6-10.4L2 16l10.4-3.6Z"/>'
+            '<path fill="#fff2a3" d="M7 3 8.5 7.5 13 9 8.5 10.5 7 15 5.5 10.5 1 9 5.5 7.5Z"/>'
+        )
+    if normalized == "🚀":
+        return (
+            '<path fill="#dfe7f1" d="M17.5 2c5.4 2 8.3 6.6 8.7 13.7l-7.7 7.7-7-7C11.9 9.7 14 5 17.5 2Z"/>'
+            '<path fill="#ff5f57" d="m11.5 16.4-5.1 1.7 3.4-7.2ZM18.5 23.4l-1.7 5.1 7.2-3.4Z"/>'
+            '<circle cx="19" cy="10" r="3.2" fill="#48c7df"/>'
+            '<path fill="#ffb000" d="M10 22c-3.2.8-5 2.6-6 6 3.4-1 5.2-2.8 6-6Z"/>'
+        )
+    return ""
