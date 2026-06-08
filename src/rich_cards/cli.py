@@ -103,6 +103,7 @@ def render(
         str,
         typer.Option(
             "--theme",
+            "-s",
             callback=_theme_callback,
             help="Pygments theme name. See `rich-cards --list-themes`.",
         ),
@@ -113,35 +114,35 @@ def render(
     ] = None,
     caption: Annotated[
         str | None,
-        typer.Option("--caption", help="Optional small caption below the code block."),
+        typer.Option("--caption", "-C", help="Optional small caption below the code block."),
     ] = None,
     background: Annotated[
         BackgroundPreset,
-        typer.Option("--background", help="Gradient preset."),
+        typer.Option("--background", "-b", help="Gradient preset."),
     ] = BackgroundPreset.aurora,
     width: Annotated[
         int,
-        typer.Option("--width", min=520, max=2400, help="SVG canvas width in pixels."),
+        typer.Option("--width", "-w", min=520, max=2400, help="SVG canvas width in pixels."),
     ] = 1080,
     padding: Annotated[
         int,
-        typer.Option("--padding", min=24, max=240, help="Outer canvas padding in pixels."),
+        typer.Option("--padding", "-p", min=24, max=240, help="Outer canvas padding in pixels."),
     ] = 72,
     radius: Annotated[
         int,
-        typer.Option("--radius", min=4, max=80, help="Rounded card corner radius in pixels."),
+        typer.Option("--radius", "-r", min=4, max=80, help="Rounded card corner radius in pixels."),
     ] = 30,
     line_numbers: Annotated[
         bool,
-        typer.Option("--line-numbers/--no-line-numbers", help="Show line numbers."),
+        typer.Option("--line-numbers/--no-line-numbers", "-n", help="Show line numbers."),
     ] = False,
     word_wrap: Annotated[
         bool,
-        typer.Option("--word-wrap/--no-word-wrap", help="Wrap long lines inside the card."),
+        typer.Option("--word-wrap/--no-word-wrap", "-W", help="Wrap long lines inside the card."),
     ] = False,
     tab_size: Annotated[
         int,
-        typer.Option("--tab-size", min=1, max=12, help="Tab expansion width."),
+        typer.Option("--tab-size", "-T", min=1, max=12, help="Tab expansion width."),
     ] = 4,
     list_themes: Annotated[
         bool,

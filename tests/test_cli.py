@@ -112,6 +112,41 @@ class RichCardsCliTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn(">demo.py</text>", self.output.read_text(encoding="utf-8"))
 
+    def test_common_short_options_render_card(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "print('hello')",
+                "-s",
+                "monokai-extended",
+                "-C",
+                "sample caption",
+                "-b",
+                "electric-twilight",
+                "-w",
+                "640",
+                "-p",
+                "48",
+                "-r",
+                "44",
+                "-n",
+                "-W",
+                "-T",
+                "2",
+                "-o",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn('width="640"', svg)
+        self.assertIn('rx="44"', svg)
+        self.assertIn(">1 │ </tspan>", svg)
+        self.assertIn("sample caption", svg)
+        self.assertIn("#0b1026", svg)
+
     def test_stdin_writes_svg(self) -> None:
         result = self.runner.invoke(
             app,
