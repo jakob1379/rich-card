@@ -30,3 +30,8 @@ rich-cards --list-themes
 rich-cards src/example.py --theme monokai-extended -o example.svg
 nix develop -c uv run rich-cards --content 'print("hi")' -o card.svg
 ```
+
+Background presets include `aurora`, `blue-raspberry`, `cosmic-lumen`,
+`dusty-grass`, `electric-twilight`, `megatron`, `night-fade`, `nordic`,
+`prism`, `rainy-ashville`, `sublime-light`, `tempting-azure`, `warm-flame`,
+and `winter-neva`.

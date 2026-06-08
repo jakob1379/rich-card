@@ -6,7 +6,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from rich_cards.cli import app
+from rich_cards.cli import BackgroundPreset, app
+from rich_cards.svg import BACKGROUND_PRESETS
 
 
 class RichCardsCliTest(unittest.TestCase):
@@ -169,6 +170,50 @@ class RichCardsCliTest(unittest.TestCase):
 
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("purple-haze", result.output)
+
+    def test_cli_background_choices_match_renderer_presets(self) -> None:
+        self.assertEqual(
+            {preset.value for preset in BackgroundPreset},
+            set(BACKGROUND_PRESETS),
+        )
+
+    def test_new_background_gradient_preset_renders(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "print('hello')",
+                "--background",
+                "electric-twilight",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("#0b1026", svg)
+        self.assertIn("#00d4ff", svg)
+        self.assertIn("#ff2fb3", svg)
+
+    def test_additional_popular_background_preset_renders(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "print('hello')",
+                "--background",
+                "winter-neva",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("#a1c4fd", svg)
+        self.assertIn("#c2e9fb", svg)
+        self.assertIn("#eef8ff", svg)
 
     def test_unknown_theme_fails(self) -> None:
         result = self.runner.invoke(

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from enum import Enum
 import sys
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
 from pygments.lexers import get_lexer_by_name
@@ -10,12 +11,17 @@ from pygments.styles import get_all_styles, get_style_by_name
 from pygments.util import ClassNotFound
 
 from rich_cards.svg import (
+    BACKGROUND_PRESETS,
     CardOptions,
     UnknownStyleError,
     render_code_card_svg,
 )
 
-Background = Literal["aurora", "ember", "lagoon", "mono", "moss"]
+BackgroundPreset = Enum(
+    "BackgroundPreset",
+    {name.replace("-", "_"): name for name in BACKGROUND_PRESETS},
+    type=str,
+)
 
 app = typer.Typer(
     add_completion=False,
@@ -110,9 +116,9 @@ def render(
         typer.Option("--caption", help="Optional small caption below the code block."),
     ] = None,
     background: Annotated[
-        Background,
+        BackgroundPreset,
         typer.Option("--background", help="Gradient preset."),
-    ] = "aurora",
+    ] = BackgroundPreset.aurora,
     width: Annotated[
         int,
         typer.Option("--width", min=520, max=2400, help="SVG canvas width in pixels."),
@@ -124,7 +130,7 @@ def render(
     radius: Annotated[
         int,
         typer.Option("--radius", min=4, max=80, help="Rounded card corner radius in pixels."),
-    ] = 12,
+    ] = 30,
     line_numbers: Annotated[
         bool,
         typer.Option("--line-numbers/--no-line-numbers", help="Show line numbers."),
@@ -159,7 +165,7 @@ def render(
                 file_name=source_name,
                 title=resolved_title,
                 caption=caption,
-                background=background,
+                background=background.value,
                 width=width,
                 padding=padding,
                 radius=radius,
