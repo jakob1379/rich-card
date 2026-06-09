@@ -9,6 +9,25 @@ from typer.testing import CliRunner
 from rich_card.cli import BackgroundPreset, app
 from rich_card.svg import BACKGROUND_PRESETS, Fragment, _wrap_fragments
 
+PNG_IMAGE = (
+    b"\x89PNG\r\n\x1a\n"
+    b"\x00\x00\x00\rIHDR"
+    b"\x00\x00\x00\x02"
+    b"\x00\x00\x00\x01"
+    b"\x08\x02\x00\x00\x00"
+    b"\xf4x\xd4\xfa"
+    b"\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+JPEG_IMAGE = (
+    b"\xff\xd8"
+    b"\xff\xc0\x00\x11\x08"
+    b"\x00\x03"
+    b"\x00\x02"
+    b"\x03\x01\x11\x00\x02\x11\x00\x03\x11\x00"
+    b"\xff\xd9"
+)
+SVG_IMAGE = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 2"><rect width="4" height="2"/></svg>'
+
 
 class RichCardsCliTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -27,6 +46,8 @@ class RichCardsCliTest(unittest.TestCase):
                 "python",
                 "--theme",
                 "monokai-extended",
+                "--radius",
+                "30",
                 "--output",
                 str(self.output),
             ],
@@ -76,6 +97,43 @@ class RichCardsCliTest(unittest.TestCase):
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn(">    </tspan>", svg)
         self.assertNotIn("</tspan>\n", svg)
+
+    def test_bash_operator_spacing_does_not_emit_isolated_space_span(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "❯ uv init --package this-sparks-joy && cd this-sparks-joy",
+                "--lexer",
+                "bash",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("&amp;&amp; </tspan>", svg)
+        self.assertNotIn("&amp;&amp;</tspan><tspan fill=\"#f8f8f2\"> </tspan>", svg)
+
+    def test_shell_comments_do_not_render_italic_spacing(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "# inside the folder\n# And from the get go",
+                "--lexer",
+                "bash",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn('<tspan fill="#75715e"># inside the folder</tspan>', svg)
+        self.assertIn('<tspan fill="#75715e"># And from the get go</tspan>', svg)
+        self.assertNotIn('font-style="italic"># inside', svg)
 
     def test_line_numbers_are_rendered_when_enabled(self) -> None:
         result = self.runner.invoke(
@@ -290,6 +348,96 @@ class RichCardsCliTest(unittest.TestCase):
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn("inline_value", svg)
         self.assertNotIn("from_file", svg)
+
+    def test_image_png_writes_image_card(self) -> None:
+        image = Path(self.tmp.name) / "sample.png"
+        image.write_bytes(PNG_IMAGE)
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--image",
+                str(image),
+                "--title",
+                "Preview",
+                "--caption",
+                "PNG sample",
+                "--lexer",
+                "not-a-lexer",
+                "--theme",
+                "not-a-theme",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("<image", svg)
+        self.assertIn('href="data:image/png;base64,', svg)
+        self.assertIn('preserveAspectRatio="xMidYMid meet"', svg)
+        self.assertIn(">Preview</tspan></text>", svg)
+        self.assertIn("PNG sample", svg)
+        self.assertNotIn("xml:space=\"preserve\"", svg)
+
+    def test_image_jpeg_writes_image_card(self) -> None:
+        image = Path(self.tmp.name) / "sample.jpg"
+        image.write_bytes(JPEG_IMAGE)
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--image",
+                str(image),
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn('href="data:image/jpeg;base64,', svg)
+        self.assertIn(">sample.jpg</tspan></text>", svg)
+
+    def test_image_svg_writes_image_card(self) -> None:
+        image = Path(self.tmp.name) / "sample.svg"
+        image.write_bytes(SVG_IMAGE)
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--image",
+                str(image),
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn('href="data:image/svg+xml;base64,', svg)
+        self.assertIn('width="4.0"', svg)
+        self.assertIn('height="2.0"', svg)
+
+    def test_image_rejects_text_source(self) -> None:
+        image = Path(self.tmp.name) / "sample.png"
+        source = Path(self.tmp.name) / "sample.py"
+        image.write_bytes(PNG_IMAGE)
+        source.write_text("print('hello')\n", encoding="utf-8")
+
+        result = self.runner.invoke(
+            app,
+            [
+                str(source),
+                "--image",
+                str(image),
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("--image cannot be used with a SOURCE path", result.output)
 
     def test_list_themes_lists_custom_and_pygments_styles(self) -> None:
         result = self.runner.invoke(app, ["--list-themes"])

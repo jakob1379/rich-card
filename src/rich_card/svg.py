@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from html import escape
 import re
+import struct
 from unicodedata import category
+from xml.etree import ElementTree
 
 from pygments import lex
 from pygments.lexers import get_lexer_by_name, guess_lexer_for_filename
@@ -134,6 +137,10 @@ class UnknownStyleError(ValueError):
     pass
 
 
+class UnsupportedImageError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class CardOptions:
     lexer: str | None = None
@@ -156,6 +163,13 @@ class Fragment:
     color: str
     bold: bool = False
     italic: bool = False
+
+
+@dataclass(frozen=True)
+class ImageContent:
+    data_uri: str
+    width: float
+    height: float
 
 
 def render_code_card_svg(code: str, options: CardOptions) -> str:
@@ -198,6 +212,152 @@ def render_code_card_svg(code: str, options: CardOptions) -> str:
         )
     parts.append("</svg>")
     return "\n".join(parts)
+
+
+def render_image_card_svg(image: bytes, file_name: str, options: CardOptions) -> str:
+    gradients = BACKGROUND_PRESETS.get(options.background)
+    if gradients is None:
+        known = ", ".join(sorted(BACKGROUND_PRESETS))
+        raise UnknownStyleError(f"Unknown background preset '{options.background}'. Use one of: {known}.")
+
+    content = _load_image_content(image, file_name)
+    card_width = options.width - (options.padding * 2)
+    image_area_width = card_width - (INNER_PADDING_X * 2)
+    scale = min(1.0, image_area_width / content.width)
+    image_width = content.width * scale
+    image_height = content.height * scale
+    caption_height = LINE_HEIGHT + CAPTION_GAP if options.caption else 0
+    card_height = TITLE_BAR_HEIGHT + INNER_PADDING_Y + image_height + caption_height + INNER_PADDING_Y
+    height = card_height + (options.padding * 2)
+    card_x = options.padding
+    card_y = options.padding
+    image_x = card_x + INNER_PADDING_X + ((image_area_width - image_width) / 2)
+    image_y = card_y + TITLE_BAR_HEIGHT + INNER_PADDING_Y
+
+    parts = [
+        _svg_open(options.width, height),
+        _defs(*gradients),
+        f'<rect width="100%" height="100%" fill="url(#card-bg)"/>',
+        f'<rect x="{card_x}" y="{card_y}" width="{card_width}" height="{card_height:.1f}" '
+        f'rx="{options.radius}" fill="{CARD_FILL}" stroke="{CARD_STROKE}" stroke-width="3" '
+        f'filter="url(#soft-shadow)"/>',
+        _title_bar(card_x, card_y, card_width, options.title),
+        f'<image x="{image_x:.1f}" y="{image_y:.1f}" width="{image_width:.1f}" height="{image_height:.1f}" '
+        f'href="{content.data_uri}" preserveAspectRatio="xMidYMid meet"/>',
+    ]
+    if options.caption:
+        caption_y = image_y + image_height + CAPTION_GAP + FONT_SIZE
+        caption_x = card_x + INNER_PADDING_X
+        parts.append(
+            f'<text x="{caption_x}" y="{caption_y:.1f}" font-family="{FONT_STACK}" font-size="13">'
+            f'{_inline_tspans(options.caption, MUTED_TEXT)}'
+            "</text>"
+        )
+    parts.append("</svg>")
+    return "\n".join(parts)
+
+
+def _load_image_content(image: bytes, file_name: str) -> ImageContent:
+    mime_type, width, height = _image_metadata(image, file_name)
+    encoded = base64.b64encode(image).decode("ascii")
+    return ImageContent(f"data:{mime_type};base64,{encoded}", width, height)
+
+
+def _image_metadata(image: bytes, file_name: str) -> tuple[str, float, float]:
+    lowered = file_name.lower()
+    if lowered.endswith(".png"):
+        return "image/png", *_png_dimensions(image)
+    if lowered.endswith((".jpg", ".jpeg")):
+        return "image/jpeg", *_jpeg_dimensions(image)
+    if lowered.endswith(".svg"):
+        return "image/svg+xml", *_svg_dimensions(image)
+    raise UnsupportedImageError("Unsupported image format. Use PNG, JPEG, or SVG.")
+
+
+def _png_dimensions(image: bytes) -> tuple[float, float]:
+    if len(image) < 24 or image[:8] != b"\x89PNG\r\n\x1a\n" or image[12:16] != b"IHDR":
+        raise UnsupportedImageError("Invalid PNG image.")
+    width, height = struct.unpack(">II", image[16:24])
+    if width <= 0 or height <= 0:
+        raise UnsupportedImageError("PNG image dimensions must be positive.")
+    return float(width), float(height)
+
+
+def _jpeg_dimensions(image: bytes) -> tuple[float, float]:
+    if len(image) < 4 or image[:2] != b"\xff\xd8":
+        raise UnsupportedImageError("Invalid JPEG image.")
+
+    index = 2
+    while index < len(image):
+        while index < len(image) and image[index] == 0xFF:
+            index += 1
+        if index >= len(image):
+            break
+        marker = image[index]
+        index += 1
+        if marker in {0x01, *range(0xD0, 0xD8)}:
+            continue
+        if marker in {0xD9, 0xDA}:
+            break
+        if index + 2 > len(image):
+            break
+        segment_length = struct.unpack(">H", image[index : index + 2])[0]
+        if segment_length < 2 or index + segment_length > len(image):
+            break
+        if marker in {
+            0xC0,
+            0xC1,
+            0xC2,
+            0xC3,
+            0xC5,
+            0xC6,
+            0xC7,
+            0xC9,
+            0xCA,
+            0xCB,
+            0xCD,
+            0xCE,
+            0xCF,
+        }:
+            if segment_length < 7:
+                break
+            height, width = struct.unpack(">HH", image[index + 3 : index + 7])
+            if width <= 0 or height <= 0:
+                raise UnsupportedImageError("JPEG image dimensions must be positive.")
+            return float(width), float(height)
+        index += segment_length
+    raise UnsupportedImageError("Could not determine JPEG image dimensions.")
+
+
+def _svg_dimensions(image: bytes) -> tuple[float, float]:
+    try:
+        root = ElementTree.fromstring(image)
+    except ElementTree.ParseError as exc:
+        raise UnsupportedImageError("Invalid SVG image.") from exc
+
+    width = _svg_length(root.get("width", ""))
+    height = _svg_length(root.get("height", ""))
+    if width is not None and height is not None:
+        return width, height
+
+    view_box = root.get("viewBox")
+    if view_box:
+        try:
+            values = [float(value) for value in re.split(r"[\s,]+", view_box.strip()) if value]
+        except ValueError as exc:
+            raise UnsupportedImageError("Could not determine SVG image dimensions. Add width/height or viewBox.") from exc
+        if len(values) == 4 and values[2] > 0 and values[3] > 0:
+            return values[2], values[3]
+
+    raise UnsupportedImageError("Could not determine SVG image dimensions. Add width/height or viewBox.")
+
+
+def _svg_length(value: str) -> float | None:
+    match = re.fullmatch(r"\s*([0-9]+(?:\.[0-9]+)?)(?:px)?\s*", value)
+    if not match:
+        return None
+    length = float(match.group(1))
+    return length if length > 0 else None
 
 
 def _highlight_lines(code: str, options: CardOptions) -> list[list[Fragment]]:
@@ -262,7 +422,8 @@ def _segment_to_fragment(text: str, style) -> Fragment:
 def _token_style(token_type, style) -> Fragment:
     token_style = style.style_for_token(token_type)
     color = f"#{token_style['color']}" if token_style["color"] else DEFAULT_TEXT
-    return Fragment("", color, bool(token_style["bold"]), bool(token_style["italic"]))
+    italic = bool(token_style["italic"]) and token_type not in Comment
+    return Fragment("", color, bool(token_style["bold"]), italic)
 
 
 def _append_text(lines: list[list[Fragment]], text: str, style: Fragment) -> None:
@@ -388,7 +549,7 @@ def _line_markup(line: list[Fragment], x: int, y: int) -> tuple[list[str], list[
     spans: list[str] = []
     overlays: list[str] = []
     cell_offset = 0
-    for fragment in line:
+    for fragment in _coalesce_whitespace_fragments(line):
         if not fragment.text:
             continue
         spans.extend(_fragment_tspans(fragment))
@@ -399,6 +560,22 @@ def _line_markup(line: list[Fragment], x: int, y: int) -> tuple[list[str], list[
                 overlays.append(overlay)
             cell_offset += grapheme_width
     return spans, overlays
+
+
+def _coalesce_whitespace_fragments(line: list[Fragment]) -> list[Fragment]:
+    output: list[Fragment] = []
+    for fragment in line:
+        if output and fragment.text.isspace():
+            previous = output[-1]
+            output[-1] = Fragment(
+                previous.text + fragment.text,
+                previous.color,
+                previous.bold,
+                previous.italic,
+            )
+            continue
+        output.append(fragment)
+    return output
 
 
 def _fragment_tspans(fragment: Fragment) -> list[str]:

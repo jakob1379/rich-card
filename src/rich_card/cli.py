@@ -14,7 +14,9 @@ from rich_card.svg import (
     BACKGROUND_PRESETS,
     CardOptions,
     UnknownStyleError,
+    UnsupportedImageError,
     render_code_card_svg,
+    render_image_card_svg,
 )
 
 BackgroundPreset = Enum(
@@ -41,6 +43,22 @@ def _read_source(source: Path | None, content: str | None) -> tuple[str, str | N
         return sys.stdin.read(), None
 
     raise typer.BadParameter("Provide a SOURCE path, --content, or piped stdin.")
+
+
+def _read_piped_stdin() -> str | None:
+    if sys.stdin.isatty():
+        return None
+    return sys.stdin.read()
+
+
+def _validate_image_mode(source: Path | None, content: str | None) -> None:
+    if source is not None:
+        raise typer.BadParameter("--image cannot be used with a SOURCE path.")
+    if content is not None:
+        raise typer.BadParameter("--image cannot be used with --content.")
+    piped_stdin = _read_piped_stdin()
+    if piped_stdin:
+        raise typer.BadParameter("--image cannot be used with piped stdin text.")
 
 
 def _theme_callback(value: str) -> str:
@@ -79,6 +97,17 @@ def render(
         str | None,
         typer.Option("--content", "-c", help="Inline code content. Takes precedence over SOURCE."),
     ] = None,
+    image: Annotated[
+        Path | None,
+        typer.Option(
+            "--image",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            help="Image file to render inside the card. Supports PNG, JPEG, and SVG.",
+        ),
+    ] = None,
     output: Annotated[
         Path,
         typer.Option(
@@ -95,7 +124,6 @@ def render(
         typer.Option(
             "--lexer",
             "-l",
-            callback=_lexer_callback,
             help="Pygments lexer name. Defaults to source filename inference, or ANSI-aware plain text for stdin.",
         ),
     ] = None,
@@ -104,7 +132,6 @@ def render(
         typer.Option(
             "--theme",
             "-s",
-            callback=_theme_callback,
             help="Pygments theme name. See `rich-card --list-themes`.",
         ),
     ] = "monokai-extended",
@@ -154,28 +181,44 @@ def render(
             typer.echo(theme_name)
         return
 
-    code, source_name = _read_source(source, content)
-    resolved_title = title if title is not None else source_name
-
     try:
-        svg = render_code_card_svg(
-            code,
-            CardOptions(
-                lexer=lexer,
-                theme=theme,
-                file_name=source_name,
-                title=resolved_title,
-                caption=caption,
-                background=background.value,
-                width=width,
-                padding=padding,
-                radius=radius,
-                line_numbers=line_numbers,
-                word_wrap=word_wrap,
-                tab_size=tab_size,
-            ),
-        )
-    except UnknownStyleError as exc:
+        if image is not None:
+            _validate_image_mode(source, content)
+            svg = render_image_card_svg(
+                image.read_bytes(),
+                image.name,
+                CardOptions(
+                    title=title if title is not None else image.name,
+                    caption=caption,
+                    background=background.value,
+                    width=width,
+                    padding=padding,
+                    radius=radius,
+                ),
+            )
+        else:
+            code, source_name = _read_source(source, content)
+            resolved_title = title if title is not None else source_name
+            validated_lexer = _lexer_callback(lexer)
+            validated_theme = _theme_callback(theme)
+            svg = render_code_card_svg(
+                code,
+                CardOptions(
+                    lexer=validated_lexer,
+                    theme=validated_theme,
+                    file_name=source_name,
+                    title=resolved_title,
+                    caption=caption,
+                    background=background.value,
+                    width=width,
+                    padding=padding,
+                    radius=radius,
+                    line_numbers=line_numbers,
+                    word_wrap=word_wrap,
+                    tab_size=tab_size,
+                ),
+            )
+    except (UnknownStyleError, UnsupportedImageError) as exc:
         raise typer.BadParameter(str(exc)) from exc
 
     output.parent.mkdir(parents=True, exist_ok=True)

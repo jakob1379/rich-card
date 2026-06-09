@@ -30,6 +30,12 @@ rich-card \
   -o tax-card.svg
 ```
 
+Images can be framed in the same card style:
+
+```bash
+rich-card --image screenshot.png --title "Build result" --caption "latest run" -o screenshot-card.svg
+```
+
 Useful commands:
 
 ```bash
