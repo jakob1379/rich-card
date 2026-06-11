@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1058" height="695" viewBox="0 0 1058 695" role="img" aria-label="Rendered code card">
+<svg xmlns="http://www.w3.org/2000/svg" width="1058" height="737" viewBox="0 0 1058 737" role="img" aria-label="Rendered code card">
 <defs>
   <linearGradient id="card-bg" x1="0" y1="0" x2="1" y2="1">
     <stop offset="0%" stop-color="#f7fbff"/>
@@ -10,7 +10,7 @@
   </filter>
 </defs>
 <rect width="100%" height="100%" fill="url(#card-bg)"/>
-<rect x="72" y="72" width="914" height="551" rx="12" fill="#26282b" stroke="#3b3e43" stroke-width="3" filter="url(#soft-shadow)"/>
+<rect x="72" y="72" width="914" height="593" rx="12" fill="#26282b" stroke="#3b3e43" stroke-width="3" filter="url(#soft-shadow)"/>
 
 <circle cx="102" cy="97" r="6" fill="#ff5f57"/>
 <circle cx="122" cy="97" r="6" fill="#ffbd2e"/>
@@ -33,11 +33,13 @@
 <text x="106" y="398" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">]</tspan></text>
 <text x="106" y="419" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">requires-python </tspan><tspan fill="#f92672">= </tspan><tspan fill="#e6db74">&quot;&gt;=3.14&quot;</tspan></text>
 <text x="106" y="440" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">dependencies </tspan><tspan fill="#f92672">=</tspan><tspan fill="#f8f8f2"> [</tspan></text>
-<text x="106" y="461" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">  </tspan><tspan fill="#e6db74">&quot;defusedxml&gt;=0.7.1&quot;</tspan><tspan fill="#f8f8f2">,</tspan></text>
-<text x="106" y="482" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">  </tspan><tspan fill="#e6db74">&quot;rich&gt;=15.0.0&quot;</tspan><tspan fill="#f8f8f2">,</tspan></text>
-<text x="106" y="503" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">  </tspan><tspan fill="#e6db74">&quot;typer&gt;=0.26.7&quot;</tspan></text>
-<text x="106" y="524" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">]</tspan></text>
-<text x="106" y="545" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"></text>
-<text x="106" y="566" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f92672">[project.scripts]</tspan></text>
-<text x="106" y="587" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">rich-card </tspan><tspan fill="#f92672">= </tspan><tspan fill="#e6db74">&quot;rich_card.cli:app&quot;</tspan></text>
+<text x="106" y="461" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">  </tspan><tspan fill="#e6db74">&quot;click&gt;=8.4.1&quot;</tspan><tspan fill="#f8f8f2">,</tspan></text>
+<text x="106" y="482" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">  </tspan><tspan fill="#e6db74">&quot;defusedxml&gt;=0.7.1&quot;</tspan><tspan fill="#f8f8f2">,</tspan></text>
+<text x="106" y="503" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">  </tspan><tspan fill="#e6db74">&quot;pygments&gt;=2.20.0&quot;</tspan><tspan fill="#f8f8f2">,</tspan></text>
+<text x="106" y="524" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">  </tspan><tspan fill="#e6db74">&quot;rich&gt;=15.0.0&quot;</tspan><tspan fill="#f8f8f2">,</tspan></text>
+<text x="106" y="545" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">  </tspan><tspan fill="#e6db74">&quot;typer&gt;=0.26.7&quot;</tspan></text>
+<text x="106" y="566" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">]</tspan></text>
+<text x="106" y="587" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"></text>
+<text x="106" y="608" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f92672">[project.scripts]</tspan></text>
+<text x="106" y="629" font-family="'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace" font-size="15" xml:space="preserve"><tspan fill="#f8f8f2">rich-card </tspan><tspan fill="#f92672">= </tspan><tspan fill="#e6db74">&quot;rich_card.cli:app&quot;</tspan></text>
 </svg>

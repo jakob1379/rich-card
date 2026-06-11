@@ -17,5 +17,7 @@ wheels/
 
 # Generated outputs and editor backups
 *.svg
-!card.svg
+!docs/
+!docs/assets/
+!docs/assets/card.svg
 *~

@@ -1,18 +1,26 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 import json
+import math
 import os
 from pathlib import Path
 from typing import Any
 
+from .options import (
+    BACKGROUND_PRESETS,
+    LOGO_PLACEMENTS,
+    BackgroundPreset,
+    LogoPlacement,
+    require_background,
+    require_logo_placement,
+)
+from .renderer_options import RendererDefaults
+
 
 class ConfigError(ValueError):
     pass
-
-
-LOGO_PLACEMENTS = frozenset({"bar", "watermark", "both"})
 
 
 @dataclass(frozen=True)
@@ -21,8 +29,8 @@ class CardConfig:
     theme: str | None = None
     title: str | None = None
     logo: str | None = None
-    logo_placement: str | None = None
-    background: str | None = None
+    logo_placement: LogoPlacement | None = None
+    background: BackgroundPreset | None = None
     width: int | None = None
     padding: int | None = None
     inner_padding: int | None = None
@@ -60,52 +68,6 @@ class RendererConfig:
 
 
 @dataclass(frozen=True)
-class RendererDefaults:
-    card_fill: str = "#26282b"
-    card_stroke: str = "#3b3e43"
-    muted_text: str = "#8d9199"
-    default_text: str = "#f0f2f5"
-    code_font_stack: str = (
-        "'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, "
-        "monospace"
-    )
-    ui_font_stack: str = (
-        "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, "
-        "'Helvetica Neue', Arial, sans-serif"
-    )
-    chrome_font_stack: str = (
-        "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, "
-        "'Helvetica Neue', Arial, sans-serif"
-    )
-    emoji_text_fallback_stack: str = (
-        "'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, "
-        "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, "
-        "'Helvetica Neue', Arial, sans-serif"
-    )
-    emoji_font_stack: str = (
-        "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', "
-        "'Twemoji Mozilla', 'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', "
-        "Menlo, Consolas, system-ui, -apple-system, BlinkMacSystemFont, "
-        "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
-    )
-    icon_font_stack: str = (
-        "'Symbols Nerd Font Mono', 'Symbols Nerd Font', 'JetBrains Mono', "
-        "'Cascadia Code', 'SFMono-Regular', Menlo, Consolas, monospace"
-    )
-    char_width: float = 9.4
-    line_height: int = 21
-    font_size: int = 15
-    title_bar_height: int = 50
-    title_bar_text_padding_x: int = 96
-    min_card_width: int = 160
-    logo_bar_max_height: int = 26
-    logo_bar_max_width: int = 120
-    logo_bar_right_padding: int = 22
-    logo_watermark_width_ratio: float = 0.45
-    logo_watermark_opacity: float = 0.14
-
-
-@dataclass(frozen=True)
 class RichCardConfig:
     output: str | None = None
     card: CardConfig = CardConfig()
@@ -135,15 +97,17 @@ def load_config(path: Path | None = None) -> RichCardConfig:
     nested card and renderer settings.
     """
     config_path = default_config_path() if path is None else path
-    if not config_path.exists():
-        return RichCardConfig(path=config_path)
-
     try:
-        raw = json.loads(config_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise ConfigError(f"{config_path}: invalid JSON: {exc.msg}") from exc
+        text = config_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return RichCardConfig(path=config_path)
     except (OSError, UnicodeDecodeError) as exc:
         raise ConfigError(f"{config_path}: could not read config: {exc}") from exc
+
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ConfigError(f"{config_path}: invalid JSON: {exc.msg}") from exc
 
     if not isinstance(raw, dict):
         raise ConfigError(f"{config_path}: config root must be a JSON object.")
@@ -192,10 +156,12 @@ def _card_config(path: Path, raw: Any) -> CardConfig:
         theme=_optional_str(path, "card.theme", raw.get("theme")),
         title=_optional_str(path, "card.title", raw.get("title")),
         logo=_optional_str(path, "card.logo", raw.get("logo")),
-        logo_placement=_optional_choice(
+        logo_placement=_optional_logo_placement(
             path, "card.logo_placement", raw.get("logo_placement"), LOGO_PLACEMENTS
         ),
-        background=_optional_str(path, "card.background", raw.get("background")),
+        background=_optional_background(
+            path, "card.background", raw.get("background"), BACKGROUND_PRESETS.keys()
+        ),
         width=_optional_int(
             path, "card.width", raw.get("width"), minimum=520, maximum=2400
         ),
@@ -346,7 +312,7 @@ def _optional_bool(path: Path, name: str, value: Any) -> bool | None:
 
 
 def _optional_choice(
-    path: Path, name: str, value: Any, choices: frozenset[str]
+    path: Path, name: str, value: Any, choices: Collection[str]
 ) -> str | None:
     if value is None:
         return None
@@ -356,6 +322,20 @@ def _optional_choice(
         known = ", ".join(sorted(choices))
         raise ConfigError(f"{path}: {name} must be one of: {known}.")
     return value
+
+
+def _optional_background(
+    path: Path, name: str, value: Any, choices: Collection[str]
+) -> BackgroundPreset | None:
+    choice = _optional_choice(path, name, value, choices)
+    return None if choice is None else require_background(choice)
+
+
+def _optional_logo_placement(
+    path: Path, name: str, value: Any, choices: Collection[str]
+) -> LogoPlacement | None:
+    choice = _optional_choice(path, name, value, choices)
+    return None if choice is None else require_logo_placement(choice)
 
 
 def _optional_int(
@@ -388,6 +368,8 @@ def _optional_number(
         return None
     if not isinstance(value, int | float) or isinstance(value, bool):
         raise ConfigError(f"{path}: {name} must be a number.")
+    if not math.isfinite(value):
+        raise ConfigError(f"{path}: {name} must be finite.")
     if value < minimum or (maximum is not None and value > maximum):
         range_text = f"{minimum}..{maximum}" if maximum is not None else f">= {minimum}"
         raise ConfigError(f"{path}: {name} must be in range {range_text}.")

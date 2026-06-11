@@ -4,7 +4,7 @@ Render syntax-highlighted code, terminal output, and images as polished SVG
 terminal cards on gradient backgrounds. The CLI uses Typer for commands and an
 in-process Pygments style based on bat's Monokai Extended colors.
 
-![Rendered rich-card example](card.svg)
+![Rendered rich-card example](docs/assets/card.svg)
 
 ## Quick Start
 
@@ -75,14 +75,14 @@ presentation defaults that are intentionally not exposed as CLI flags.
 
 ## Generated Assets
 
-`card.svg` can be regenerated with:
+`docs/assets/card.svg` can be regenerated with:
 
 ```bash
 uv run python scripts/update_generated_docs.py
 ```
 
-The Nix development shell installs a pre-commit hook that refreshes `card.svg`
-and the CLI reference before each commit:
+The Nix development shell installs a pre-commit hook that refreshes
+`docs/assets/card.svg` and the CLI reference before each commit:
 
 ```bash
 uv run python scripts/update_generated_docs.py
@@ -117,7 +117,7 @@ $ rich-card [OPTIONS] [SOURCE]
 - `-t, --title TEXT`: Optional card title shown in the card chrome.
 - `--logo FILE`: Logo image to place in the title bar, terminal background, or
   both. Supports PNG, JPEG, and SVG.
-- `--logo-placement [both|watermark|bar]`: Where to render --logo. [default:
+- `--logo-placement [bar|watermark|both]`: Where to render --logo. [default:
   bar]
 - `-b, --background [aurora|blue-raspberry|cosmic-lumen|dusty-grass|ember|electric-twilight|frozen-dream|lagoon|megatron|moss|mono|night-fade|nordic|premium-dark|prism|rainy-ashville|sublime-light|sunny-morning|tempting-azure|warm-flame|winter-neva]`:
   Gradient preset. [default: aurora]
