@@ -4,6 +4,8 @@ from collections.abc import Mapping
 from enum import StrEnum
 from types import MappingProxyType
 
+from .errors import InvalidRendererOptionError
+
 
 BackgroundStops = tuple[str, str, str]
 
@@ -75,7 +77,7 @@ def format_choices(values: Mapping[str, object] | frozenset[str]) -> str:
 
 def require_background(value: str) -> BackgroundPreset:
     if value not in BACKGROUND_PRESETS:
-        raise ValueError(
+        raise InvalidRendererOptionError(
             f"Unknown background preset '{value}'. Use one of: {format_choices(BACKGROUND_PRESETS)}."
         )
     return BackgroundPreset(value)
@@ -83,7 +85,7 @@ def require_background(value: str) -> BackgroundPreset:
 
 def require_logo_placement(value: str) -> LogoPlacement:
     if value not in LOGO_PLACEMENTS:
-        raise ValueError(
+        raise InvalidRendererOptionError(
             f"Unknown logo placement '{value}'. Use one of: {format_choices(LOGO_PLACEMENTS)}."
         )
     return LogoPlacement(value)

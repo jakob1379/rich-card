@@ -144,6 +144,12 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn("x", svg)
+        self.assertIn('#111111', svg)
+        self.assertIn('#222222', svg)
+        self.assertIn('#abcdef', svg)
+        self.assertIn('Configured Mono', svg)
+        self.assertIn('font-size="17"', svg)
+        self.assertIn('width="300"', svg)
 
     def test_xdg_config_supplies_logo_defaults_and_renderer_tuning(self) -> None:
         logo = Path(self.tmp.name) / "logo.png"
@@ -177,6 +183,7 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn("rich-card-logo-watermark", svg)
         self.assertNotIn("rich-card-logo-bar", svg)
+        self.assertIn('opacity="0.5"', svg)
 
     def test_cli_logo_placement_overrides_xdg_config_default(self) -> None:
         logo = Path(self.tmp.name) / "logo.png"

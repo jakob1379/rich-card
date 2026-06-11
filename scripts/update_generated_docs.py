@@ -61,7 +61,7 @@ def _write_card_svg() -> None:
     os.environ["XDG_CONFIG_HOME"] = str(ROOT / ".generated-config")
     try:
         app(
-            args=["pyproject.toml", "--output", str(GENERATED_CARD)],
+            args=[str(ROOT / "pyproject.toml"), "--output", str(GENERATED_CARD)],
             prog_name="rich-card",
             standalone_mode=False,
         )

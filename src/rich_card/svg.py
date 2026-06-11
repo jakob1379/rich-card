@@ -198,6 +198,8 @@ def _validate_common_options(options: CommonCardOptions) -> None:
         raise InvalidRendererOptionError("background must be a BackgroundPreset.")
     if not isinstance(options.logo_placement, LogoPlacement):
         raise InvalidRendererOptionError("logo_placement must be a LogoPlacement.")
+    if options.logo is not None and not isinstance(options.logo, ImageContent):
+        raise InvalidRendererOptionError("logo must be an ImageContent or None.")
     _validate_optional_int("width", options.width, minimum=1)
     _validate_int("padding", options.padding, minimum=0)
     _validate_int("inner_padding_x", options.inner_padding_x, minimum=0)
