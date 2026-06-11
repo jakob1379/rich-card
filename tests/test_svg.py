@@ -111,6 +111,16 @@ class RichCardSvgTest(unittest.TestCase):
         )
         self.assertNotIn('font-style="italic"># inside', comment_svg)
 
+    def test_render_code_card_svg_nix_multiline_string_token(self) -> None:
+        svg = render_code_card_svg(
+            "shellHook = ''\n  export UV_PYTHON_PREFERENCE=\"managed\"\n  '';",
+            CodeCardOptions(file_name="flake.nix"),
+        )
+
+        self.assertIn("shellHook", svg)
+        self.assertIn("UV_PYTHON_PREFERENCE", svg)
+        self.assertIn('fill="#e6db74"', svg)
+
     def test_render_code_card_svg_emoji_font_fallback_markup(self) -> None:
         svg = render_code_card_svg(
             "print('🚀✨')  # shipped ✅",

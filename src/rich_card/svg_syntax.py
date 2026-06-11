@@ -164,12 +164,21 @@ def _segment_to_fragment(text: str, style, renderer: RendererDefaults) -> Fragme
 
 
 def _token_style(token_type, style, renderer: RendererDefaults) -> Fragment:
-    token_style = style.style_for_token(token_type)
+    token_style = _style_for_token(token_type, style)
     color = (
         f"#{token_style['color']}" if token_style["color"] else renderer.default_text
     )
     italic = bool(token_style["italic"]) and token_type not in Comment
     return Fragment("", color, bool(token_style["bold"]), italic)
+
+
+def _style_for_token(token_type, style):
+    while token_type is not None:
+        try:
+            return style.style_for_token(token_type)
+        except KeyError:
+            token_type = token_type.parent
+    return style.style_for_token(Token)
 
 
 def _append_text(lines: list[list[Fragment]], text: str, style: Fragment) -> None:
