@@ -128,7 +128,7 @@ $ rich-card [OPTIONS] [SOURCE]
 - `--inner-padding, --terminal-padding INTEGER RANGE`: Padding inside the
   terminal card around the content or image. [0&lt;=x&lt;=160]
 - `-r, --radius INTEGER RANGE`: Rounded card corner radius in pixels. [default:
-  30; 4&lt;=x&lt;=80]
+  12; 4&lt;=x&lt;=80]
 - `-n, --line-numbers / --no-line-numbers`: Show line numbers. [default:
   no-line-numbers]
 - `-W, --word-wrap / --no-word-wrap`: Wrap long lines inside the card. [default:

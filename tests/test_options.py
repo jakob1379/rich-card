@@ -57,8 +57,7 @@ class RichCardOptionsTest(unittest.TestCase):
         )
         self.assertIn(DEFAULT_BACKGROUND.value, BACKGROUND_PRESETS)
         self.assertIn(DEFAULT_LOGO_PLACEMENT.value, LOGO_PLACEMENTS)
-        self.assertIsInstance(DEFAULT_CARD_RADIUS, int)
-        self.assertGreater(DEFAULT_CARD_RADIUS, 0)
+        self.assertEqual(DEFAULT_CARD_RADIUS, 12)
         self.assertEqual(len(BACKGROUND_PRESETS[DEFAULT_BACKGROUND.value]), 3)
 
 

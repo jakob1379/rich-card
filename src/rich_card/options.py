@@ -66,7 +66,7 @@ BACKGROUND_PRESETS: Mapping[str, BackgroundStops] = MappingProxyType(
 LOGO_PLACEMENTS = frozenset(placement.value for placement in LogoPlacement)
 DEFAULT_BACKGROUND = BackgroundPreset.aurora
 DEFAULT_LOGO_PLACEMENT = LogoPlacement.bar
-DEFAULT_CARD_RADIUS = 30
+DEFAULT_CARD_RADIUS = 12
 
 
 def format_choices(values: Mapping[str, object] | frozenset[str]) -> str:
