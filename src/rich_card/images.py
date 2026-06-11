@@ -9,7 +9,7 @@ import struct
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
 
-from .errors import UnsupportedImageError
+from .errors import InvalidRendererOptionError, UnsupportedImageError
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,28 @@ class ImageContent:
             raise UnsupportedImageError("Image dimensions must be finite.")
         if self.width <= 0 or self.height <= 0:
             raise UnsupportedImageError("Image dimensions must be positive.")
+        _validate_data_uri(self.data_uri)
+
+
+def _validate_data_uri(data_uri: str) -> None:
+    """Validate that data_uri is a safe data: URI for SVG embedding."""
+    if not data_uri.startswith("data:"):
+        raise InvalidRendererOptionError(
+            "data_uri must start with 'data:' for safe SVG embedding."
+        )
+
+    # Enforce strict data URI format: data:<mediatype>;base64,<data>
+    # The pattern allows safe characters in mediatype and base64 data only
+    # Explicitly rejects quotes, angle brackets, and control characters
+    safe_data_uri_pattern = re.compile(
+        r"^data:[a-zA-Z0-9!#$%&*+\-./^_`{|}~]+;base64,[A-Za-z0-9+/]+=*$"
+    )
+
+    if not safe_data_uri_pattern.match(data_uri):
+        raise InvalidRendererOptionError(
+            "data_uri contains invalid characters or format. "
+            "Must match pattern: data:<mediatype>;base64,<base64-data>"
+        )
 
 
 JPEG_STANDALONE_MARKERS = frozenset({0x01, *range(0xD0, 0xD8)})

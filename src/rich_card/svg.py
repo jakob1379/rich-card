@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import html
 from math import ceil, isfinite
 from typing import cast
 
@@ -185,7 +186,7 @@ def render_image_card_svg(content: ImageContent, options: ImageCardOptions) -> s
     )
     parts.append(
         f'<image x="{image_x:.1f}" y="{image_y:.1f}" width="{image_width:.1f}" height="{image_height:.1f}" '
-        f'href="{content.data_uri}" preserveAspectRatio="xMidYMid meet"/>'
+        f'href="{html.escape(content.data_uri, quote=True)}" preserveAspectRatio="xMidYMid meet"/>'
     )
     parts.append("</svg>")
     return "\n".join(parts)
@@ -453,7 +454,7 @@ def _bar_logo(
     return (
         f'<image class="rich-card-logo rich-card-logo-bar" x="{image_x:.1f}" '
         f'y="{image_y:.1f}" width="{logo_width:.1f}" height="{logo_height:.1f}" '
-        f'href="{logo.data_uri}" preserveAspectRatio="xMidYMid meet"/>'
+        f'href="{html.escape(logo.data_uri, quote=True)}" preserveAspectRatio="xMidYMid meet"/>'
     )
 
 
@@ -473,7 +474,7 @@ def _watermark_logo(
     return (
         f'<image class="rich-card-logo rich-card-logo-watermark" x="{image_x:.1f}" '
         f'y="{image_y:.1f}" width="{logo_width:.1f}" height="{logo_height:.1f}" '
-        f'opacity="{renderer.logo_watermark_opacity:.3g}" href="{logo.data_uri}" '
+        f'opacity="{renderer.logo_watermark_opacity:.3g}" href="{html.escape(logo.data_uri, quote=True)}" '
         'preserveAspectRatio="xMidYMid meet"/>'
     )
 
