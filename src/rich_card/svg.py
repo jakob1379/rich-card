@@ -148,7 +148,15 @@ def render_code_card_svg(code: str, options: CodeCardOptions) -> str:
     )
 
     parts = _card_frame_parts(
-        width, height, card_x, card_y, card_width, card_height, options, renderer
+        width,
+        height,
+        card_x,
+        card_y,
+        card_width,
+        card_height,
+        options,
+        renderer,
+        "Rendered code card",
     )
     parts.append(_code_lines(lines, code_x, code_y, renderer))
     parts.append("</svg>")
@@ -182,7 +190,15 @@ def render_image_card_svg(content: ImageContent, options: ImageCardOptions) -> s
     image_y = card_y + renderer.title_bar_height + options.inner_padding_y
 
     parts = _card_frame_parts(
-        width, height, card_x, card_y, card_width, card_height, options, renderer
+        width,
+        height,
+        card_x,
+        card_y,
+        card_width,
+        card_height,
+        options,
+        renderer,
+        "Rendered image card",
     )
     parts.append(
         f'<image x="{image_x:.1f}" y="{image_y:.1f}" width="{image_width:.1f}" height="{image_height:.1f}" '
@@ -193,6 +209,11 @@ def render_image_card_svg(content: ImageContent, options: ImageCardOptions) -> s
 
 
 def _validate_common_options(options: CommonCardOptions) -> None:
+    _validate_optional_string("title", options.title)
+    if isinstance(options, CodeCardOptions):
+        _validate_optional_string("lexer", options.lexer)
+        _validate_string("theme", options.theme)
+        _validate_optional_string("file_name", options.file_name)
     if not isinstance(options.renderer, RendererDefaults):
         raise InvalidRendererOptionError("renderer must be a RendererDefaults.")
     if not isinstance(options.background, BackgroundPreset):
@@ -267,6 +288,16 @@ def _validate_bool(name: str, value: bool) -> None:
         raise InvalidRendererOptionError(f"{name} must be a boolean.")
 
 
+def _validate_string(name: str, value: object) -> None:
+    if not isinstance(value, str):
+        raise InvalidRendererOptionError(f"{name} must be a string.")
+
+
+def _validate_optional_string(name: str, value: object) -> None:
+    if value is not None and not isinstance(value, str):
+        raise InvalidRendererOptionError(f"{name} must be a string or None.")
+
+
 def _validate_number(
     name: str, value: float | int, *, minimum: float, maximum: float | None = None
 ) -> None:
@@ -297,10 +328,11 @@ def _card_frame_parts(
     card_height: float,
     options: CommonCardOptions,
     renderer: RendererDefaults,
+    aria_label: str = "Rendered code card",
 ) -> list[str]:
     gradients = _background_gradients(options.background)
     return [
-        _svg_open(width, height),
+        _svg_open(width, height, aria_label),
         _defs(*gradients),
         '<rect width="100%" height="100%" fill="url(#card-bg)"/>',
         f'<rect x="{card_x}" y="{card_y}" width="{_number(card_width)}" height="{_number(card_height)}" '
@@ -365,10 +397,13 @@ def _inline_card_width(
     return ceil(cell_len(text) * renderer.char_width + (side_padding * 2))
 
 
-def _svg_open(width: float, height: float) -> str:
+def _svg_open(
+    width: float, height: float, aria_label: str = "Rendered code card"
+) -> str:
+    escaped_label = html.escape(aria_label, quote=True)
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}" role="img" aria-label="Rendered code card">'
+        f'viewBox="0 0 {width} {height}" role="img" aria-label="{escaped_label}">'
     )
 
 

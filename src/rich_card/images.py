@@ -151,31 +151,40 @@ def _svg_dimensions(image: bytes) -> tuple[float, float]:
     except (ElementTree.ParseError, DefusedXmlException) as exc:
         raise UnsupportedImageError("Invalid SVG image.") from exc
 
+    if root.tag != "svg" and not root.tag.endswith("}svg"):
+        raise UnsupportedImageError("Invalid SVG root element.")
+
     width = _svg_length(root.get("width", ""))
     height = _svg_length(root.get("height", ""))
     if width is not None and height is not None:
         return width, height
 
-    view_box = root.get("viewBox")
-    if view_box:
-        try:
-            values = [
-                float(value) for value in re.split(r"[\s,]+", view_box.strip()) if value
-            ]
-        except ValueError as exc:
-            raise UnsupportedImageError(
-                "Could not determine SVG image dimensions. Add width/height or viewBox."
-            ) from exc
-        if len(values) == 4:
-            width, height = values[2], values[3]
-            if not math.isfinite(width) or not math.isfinite(height):
-                raise UnsupportedImageError("SVG image dimensions must be finite.")
-            if width > 0 and height > 0:
-                return width, height
+    dimensions = _svg_view_box_dimensions(root.get("viewBox"))
+    if dimensions is not None:
+        return dimensions
 
     raise UnsupportedImageError(
         "Could not determine SVG image dimensions. Add width/height or viewBox."
     )
+
+
+def _svg_view_box_dimensions(view_box: str | None) -> tuple[float, float] | None:
+    if not view_box:
+        return None
+    try:
+        values = [
+            float(value) for value in re.split(r"[\s,]+", view_box.strip()) if value
+        ]
+    except ValueError as exc:
+        raise UnsupportedImageError(
+            "Could not determine SVG image dimensions. Add width/height or viewBox."
+        ) from exc
+    if len(values) != 4:
+        return None
+    width, height = values[2], values[3]
+    if not math.isfinite(width) or not math.isfinite(height):
+        raise UnsupportedImageError("SVG image dimensions must be finite.")
+    return (width, height) if width > 0 and height > 0 else None
 
 
 def _svg_length(value: str) -> float | None:

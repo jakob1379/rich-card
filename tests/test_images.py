@@ -95,6 +95,12 @@ class ImageContentTest(unittest.TestCase):
         ):
             image_metadata(svg, "logo.svg")
 
+    def test_svg_metadata_rejects_non_svg_root(self) -> None:
+        svg = b'<html width="12" height="6"></html>'
+
+        with self.assertRaisesRegex(UnsupportedImageError, "Invalid SVG root element"):
+            image_metadata(svg, "logo.svg")
+
     def test_invalid_png_raises(self) -> None:
         with self.assertRaises(UnsupportedImageError):
             image_metadata(b"not a png", "logo.png")

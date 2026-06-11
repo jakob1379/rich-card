@@ -28,6 +28,7 @@ class RichCardSvgTest(unittest.TestCase):
         )
 
         self.assertTrue(svg.startswith("<svg "))
+        self.assertIn('aria-label="Rendered code card"', svg)
         self.assertIn("hello.py", svg)
         self.assertIn("print", svg)
         self.assertIn("</svg>", svg)
@@ -42,6 +43,7 @@ class RichCardSvgTest(unittest.TestCase):
         )
 
         self.assertTrue(svg.startswith("<svg "))
+        self.assertIn('aria-label="Rendered image card"', svg)
         self.assertIn("diagram.svg", svg)
         self.assertIn("data:image/svg+xml;base64,", svg)
         self.assertIn('preserveAspectRatio="xMidYMid meet"', svg)
@@ -197,6 +199,10 @@ class RichCardSvgTest(unittest.TestCase):
 
     def test_code_card_options_reject_invalid_code_options(self) -> None:
         cases = (
+            ({"title": 1}, "title must be a string or None"),
+            ({"lexer": 1}, "lexer must be a string or None"),
+            ({"theme": None}, "theme must be a string"),
+            ({"file_name": 1}, "file_name must be a string or None"),
             ({"tab_size": 0}, "tab_size must be in range 1..12"),
             ({"tab_size": 13}, "tab_size must be in range 1..12"),
             ({"tab_size": True}, "tab_size must be an integer"),

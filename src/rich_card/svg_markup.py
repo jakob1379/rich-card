@@ -55,18 +55,13 @@ def _coalesce_whitespace_fragments(line: list[Fragment]) -> list[Fragment]:
     for fragment in line:
         if output and fragment.text.isspace():
             previous = output[-1]
-            if (
-                previous.color == fragment.color
-                and previous.bold == fragment.bold
-                and previous.italic == fragment.italic
-            ):
-                output[-1] = Fragment(
-                    previous.text + fragment.text,
-                    previous.color,
-                    previous.bold,
-                    previous.italic,
-                )
-                continue
+            output[-1] = Fragment(
+                previous.text + fragment.text,
+                previous.color,
+                previous.bold,
+                previous.italic,
+            )
+            continue
         output.append(fragment)
     return output
 
