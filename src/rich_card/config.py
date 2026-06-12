@@ -9,11 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from .options import (
-    BACKGROUND_PRESETS,
+    BACKGROUND_CHOICES,
     LOGO_PLACEMENTS,
-    BackgroundPreset,
+    BackgroundChoice,
     LogoPlacement,
-    require_background,
+    require_background_choice,
     require_logo_placement,
 )
 from .renderer_options import RendererDefaults
@@ -30,7 +30,7 @@ class CardConfig:
     title: str | None = None
     logo: str | None = None
     logo_placement: LogoPlacement | None = None
-    background: BackgroundPreset | None = None
+    background: BackgroundChoice | None = None
     width: int | None = None
     padding: int | None = None
     inner_padding: int | None = None
@@ -160,7 +160,7 @@ def _card_config(path: Path, raw: Any) -> CardConfig:
             path, "card.logo_placement", raw.get("logo_placement"), LOGO_PLACEMENTS
         ),
         background=_optional_background(
-            path, "card.background", raw.get("background"), BACKGROUND_PRESETS.keys()
+            path, "card.background", raw.get("background"), BACKGROUND_CHOICES
         ),
         width=_optional_int(
             path, "card.width", raw.get("width"), minimum=520, maximum=2400
@@ -326,9 +326,9 @@ def _optional_choice(
 
 def _optional_background(
     path: Path, name: str, value: Any, choices: Collection[str]
-) -> BackgroundPreset | None:
+) -> BackgroundChoice | None:
     choice = _optional_choice(path, name, value, choices)
-    return None if choice is None else require_background(choice)
+    return None if choice is None else require_background_choice(choice)
 
 
 def _optional_logo_placement(

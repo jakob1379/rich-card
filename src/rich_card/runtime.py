@@ -8,7 +8,7 @@ import tempfile
 
 from .errors import RendererError, UnsupportedImageError
 from .images import ImageContent, load_image_content
-from .options import BackgroundPreset, LogoPlacement
+from .options import BackgroundChoice, LogoPlacement
 from .renderer_options import RendererDefaults
 from .svg import (
     CodeCardOptions,
@@ -26,7 +26,7 @@ class RenderSettings:
     title: str | None
     logo: Path | None
     logo_placement: LogoPlacement
-    background: BackgroundPreset
+    background: BackgroundChoice
     width: int | None
     padding: int
     inner_padding_x: int

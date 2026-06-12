@@ -176,6 +176,25 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         self.assertIn("No such option", result.output)
         self.assertIn("--caption", result.output)
 
+    def test_padding_alias_options_are_not_supported(self) -> None:
+        for option in ("--background-padding", "--terminal-padding"):
+            with self.subTest(option=option):
+                result = self.runner.invoke(
+                    app,
+                    [
+                        "--content",
+                        "print('hello')",
+                        option,
+                        "20",
+                        "--output",
+                        str(self.output),
+                    ],
+                )
+
+                self.assertNotEqual(result.exit_code, 0)
+                self.assertIn("No such option", result.output)
+                self.assertIn(option, result.output)
+
     def test_image_rejects_code_only_options(self) -> None:
         image = Path(self.tmp.name) / "sample.png"
         image.write_bytes(PNG_IMAGE)
@@ -344,7 +363,7 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("does not exist", result.output)
 
-    def test_background_uses_typer_choice_validation(self) -> None:
+    def test_background_rejects_unknown_preset(self) -> None:
         result = self.runner.invoke(
             app,
             [
@@ -358,6 +377,7 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         )
 
         self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("Unknown background option", result.output)
         self.assertIn("purple-haze", result.output)
 
     def test_unknown_theme_fails(self) -> None:

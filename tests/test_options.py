@@ -4,6 +4,8 @@ import unittest
 from typing import Any, cast
 
 from rich_card.options import (
+    BACKGROUND_CHOICES,
+    BACKGROUND_OFF,
     BACKGROUND_PRESETS,
     BackgroundPreset,
     DEFAULT_BACKGROUND,
@@ -12,6 +14,7 @@ from rich_card.options import (
     LOGO_PLACEMENTS,
     LogoPlacement,
     require_background,
+    require_background_choice,
     require_logo_placement,
 )
 
@@ -29,6 +32,10 @@ class RichCardOptionsTest(unittest.TestCase):
         self.assertEqual(require_background("aurora"), BackgroundPreset.aurora)
         self.assertEqual(require_background("ember"), BackgroundPreset.ember)
 
+    def test_require_background_choice_returns_valid_input(self) -> None:
+        self.assertEqual(require_background_choice("aurora"), BackgroundPreset.aurora)
+        self.assertEqual(require_background_choice("off"), BACKGROUND_OFF)
+
     def test_require_logo_placement_returns_valid_input(self) -> None:
         self.assertEqual(require_logo_placement("bar"), LogoPlacement.bar)
         self.assertEqual(require_logo_placement("watermark"), LogoPlacement.watermark)
@@ -40,6 +47,13 @@ class RichCardOptionsTest(unittest.TestCase):
             r"Unknown background preset 'bogus'\. Use one of: .*aurora.*ember",
         ):
             require_background("bogus")
+
+    def test_require_background_choice_rejects_invalid_value_with_choices(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Unknown background option 'bogus'\. Use one of: .*aurora.*off",
+        ):
+            require_background_choice("bogus")
 
     def test_require_logo_placement_rejects_invalid_value_with_choices(self) -> None:
         with self.assertRaisesRegex(
@@ -56,6 +70,7 @@ class RichCardOptionsTest(unittest.TestCase):
             require_logo_placement(DEFAULT_LOGO_PLACEMENT.value), DEFAULT_LOGO_PLACEMENT
         )
         self.assertIn(DEFAULT_BACKGROUND.value, BACKGROUND_PRESETS)
+        self.assertIn(BACKGROUND_OFF, BACKGROUND_CHOICES)
         self.assertIn(DEFAULT_LOGO_PLACEMENT.value, LOGO_PLACEMENTS)
         self.assertEqual(DEFAULT_CARD_RADIUS, 12)
         self.assertEqual(len(BACKGROUND_PRESETS[DEFAULT_BACKGROUND.value]), 3)

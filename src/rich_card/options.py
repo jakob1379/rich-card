@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from enum import StrEnum
 from types import MappingProxyType
+from typing import Literal
 
 from .errors import InvalidRendererOptionError
 
@@ -40,6 +41,9 @@ class LogoPlacement(StrEnum):
     both = "both"
 
 
+BackgroundChoice = BackgroundPreset | Literal["off"]
+
+
 BACKGROUND_PRESETS: Mapping[str, BackgroundStops] = MappingProxyType(
     {
         "aurora": ("#f7fbff", "#bdefff", "#48c7df"),
@@ -65,13 +69,15 @@ BACKGROUND_PRESETS: Mapping[str, BackgroundStops] = MappingProxyType(
         "winter-neva": ("#a1c4fd", "#c2e9fb", "#eef8ff"),
     }
 )
+BACKGROUND_OFF = "off"
+BACKGROUND_CHOICES = (*BACKGROUND_PRESETS, BACKGROUND_OFF)
 LOGO_PLACEMENTS = frozenset(placement.value for placement in LogoPlacement)
 DEFAULT_BACKGROUND = BackgroundPreset.aurora
 DEFAULT_LOGO_PLACEMENT = LogoPlacement.bar
 DEFAULT_CARD_RADIUS = 12
 
 
-def format_choices(values: Mapping[str, object] | frozenset[str]) -> str:
+def format_choices(values: Mapping[str, object] | Collection[str]) -> str:
     return ", ".join(sorted(values))
 
 
@@ -81,6 +87,16 @@ def require_background(value: str) -> BackgroundPreset:
             f"Unknown background preset '{value}'. Use one of: {format_choices(BACKGROUND_PRESETS)}."
         )
     return BackgroundPreset(value)
+
+
+def require_background_choice(value: str) -> BackgroundChoice:
+    if value == BACKGROUND_OFF:
+        return BACKGROUND_OFF
+    if value in BACKGROUND_PRESETS:
+        return BackgroundPreset(value)
+    raise InvalidRendererOptionError(
+        f"Unknown background option '{value}'. Use one of: {format_choices(BACKGROUND_CHOICES)}."
+    )
 
 
 def require_logo_placement(value: str) -> LogoPlacement:

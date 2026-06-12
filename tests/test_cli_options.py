@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from rich_card.cli import app
-from rich_card.options import BACKGROUND_PRESETS, BackgroundPreset
+from rich_card.options import BACKGROUND_CHOICES, BACKGROUND_PRESETS, BackgroundPreset
 
 from tests.cli_helpers import RichCardsCliTestCase
 
@@ -76,7 +76,7 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
                 "print('hello')",
                 "--width",
                 "640",
-                "--background-padding",
+                "--padding",
                 "40",
                 "--inner-padding",
                 "20",
@@ -95,6 +95,12 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("monokai-extended", result.output)
         self.assertIn("monokai", result.output)
+
+    def test_list_backgrounds_lists_background_options(self) -> None:
+        result = self.runner.invoke(app, ["--list-backgrounds"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(result.output.splitlines(), list(BACKGROUND_CHOICES))
 
     def test_cli_background_choices_match_renderer_presets(self) -> None:
         self.assertEqual(
@@ -133,3 +139,23 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("print", self.output.read_text(encoding="utf-8"))
+
+    def test_background_off_renders_tight_transparent_canvas(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "print('hello')",
+                "--background",
+                "off",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn('<rect x="0" y="0"', svg)
+        self.assertNotIn('id="card-bg"', svg)
+        self.assertNotIn('fill="url(#card-bg)"', svg)
+        self.assertNotIn('filter="url(#soft-shadow)"', svg)

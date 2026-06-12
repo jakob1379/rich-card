@@ -29,11 +29,11 @@ rich-card --image screenshot.png --title "Build result" --inner-padding 24 -o sc
 ```
 
 Cards auto-size to their content by default. Pass `--width` when you want a
-fixed canvas width. Use `--background-padding` for the outer gradient margin and
+fixed canvas width. Use `--padding` for the outer gradient margin and
 `--inner-padding` for the padding inside the terminal card:
 
 ```bash
-rich-card --content 'print("hi")' --width 1080 --background-padding 80 --inner-padding 32 -o fixed-card.svg
+rich-card --content 'print("hi")' --width 1080 --padding 80 --inner-padding 32 -o fixed-card.svg
 ```
 
 ## Configuration
@@ -119,14 +119,14 @@ $ rich-card [OPTIONS] [SOURCE]
   both. Supports PNG, JPEG, and SVG.
 - `--logo-placement [bar|watermark|both]`: Where to render --logo. [default:
   bar]
-- `-b, --background [aurora|blue-raspberry|cosmic-lumen|dusty-grass|ember|electric-twilight|frozen-dream|lagoon|megatron|moss|mono|night-fade|nordic|premium-dark|prism|rainy-ashville|sublime-light|sunny-morning|tempting-azure|warm-flame|winter-neva]`:
-  Gradient preset. [default: aurora]
+- `-b, --background TEXT`: Background option. See
+  `rich-card --list-backgrounds`. [default: aurora]
 - `-w, --width INTEGER RANGE`: Fixed SVG canvas width in pixels.
   [520&lt;=x&lt;=2400]
-- `-p, --padding, --background-padding INTEGER RANGE`: Background padding
-  outside the terminal card in pixels. [default: 72; 24&lt;=x&lt;=240]
-- `--inner-padding, --terminal-padding INTEGER RANGE`: Padding inside the
-  terminal card around the content or image. [0&lt;=x&lt;=160]
+- `-p, --padding INTEGER RANGE`: Background padding outside the terminal card in
+  pixels. [default: 72; 24&lt;=x&lt;=240]
+- `--inner-padding INTEGER RANGE`: Padding inside the terminal card around the
+  content or image. [0&lt;=x&lt;=160]
 - `-r, --radius INTEGER RANGE`: Rounded card corner radius in pixels. [default:
   12; 4&lt;=x&lt;=80]
 - `-n, --line-numbers / --no-line-numbers`: Show line numbers. [default:
@@ -136,6 +136,7 @@ $ rich-card [OPTIONS] [SOURCE]
 - `-T, --tab-size INTEGER RANGE`: Tab expansion width. [default: 2;
   1&lt;=x&lt;=12]
 - `--list-themes`: List syntax themes and exit.
+- `--list-backgrounds`: List background options and exit.
 - `--help`: Show this message and exit.
 
 <!-- END CLI REFERENCE -->

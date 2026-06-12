@@ -13,7 +13,9 @@ from .errors import (
 )
 from .images import ImageContent
 from .options import (
+    BACKGROUND_OFF,
     BACKGROUND_PRESETS,
+    BackgroundChoice,
     DEFAULT_CARD_RADIUS,
     BackgroundPreset,
     LogoPlacement,
@@ -64,7 +66,7 @@ __all__ = [
 @dataclass(frozen=True)
 class CommonCardOptions:
     title: str | None = None
-    background: BackgroundPreset = BackgroundPreset.aurora
+    background: BackgroundChoice = BackgroundPreset.aurora
     width: int | None = None
     padding: int = 72
     inner_padding_x: int = INNER_PADDING_X
@@ -117,7 +119,8 @@ def render_code_card_svg(code: str, options: CodeCardOptions) -> str:
         width = _auto_code_canvas_width(lines, options)
     else:
         width = options.width
-        card_width = width - (options.padding * 2)
+        padding = _effective_padding(options)
+        card_width = width - (padding * 2)
         code_width = max(1, card_width - (options.inner_padding_x * 2))
         max_columns = max(20, int(code_width / renderer.char_width))
         lines = _prepare_lines(
@@ -128,7 +131,8 @@ def render_code_card_svg(code: str, options: CodeCardOptions) -> str:
             word_wrap=options.word_wrap,
         )
 
-    card_width = width - (options.padding * 2)
+    padding = _effective_padding(options)
+    card_width = width - (padding * 2)
     code_height = max(1, len(lines)) * renderer.line_height
     card_height = (
         renderer.title_bar_height
@@ -136,9 +140,9 @@ def render_code_card_svg(code: str, options: CodeCardOptions) -> str:
         + code_height
         + options.inner_padding_y
     )
-    height = card_height + (options.padding * 2)
-    card_x = options.padding
-    card_y = options.padding
+    height = card_height + (padding * 2)
+    card_x = padding
+    card_y = padding
     code_x = card_x + options.inner_padding_x
     code_y = (
         card_y
@@ -172,7 +176,8 @@ def render_image_card_svg(content: ImageContent, options: ImageCardOptions) -> s
     else:
         width = options.width
 
-    card_width = width - (options.padding * 2)
+    padding = _effective_padding(options)
+    card_width = width - (padding * 2)
     image_area_width = max(1, card_width - (options.inner_padding_x * 2))
     scale = min(1.0, image_area_width / content.width)
     image_width = content.width * scale
@@ -183,9 +188,9 @@ def render_image_card_svg(content: ImageContent, options: ImageCardOptions) -> s
         + image_height
         + options.inner_padding_y
     )
-    height = card_height + (options.padding * 2)
-    card_x = options.padding
-    card_y = options.padding
+    height = card_height + (padding * 2)
+    card_x = padding
+    card_y = padding
     image_x = card_x + options.inner_padding_x + ((image_area_width - image_width) / 2)
     image_y = card_y + renderer.title_bar_height + options.inner_padding_y
 
@@ -216,8 +221,12 @@ def _validate_common_options(options: CommonCardOptions) -> None:
         _validate_optional_string("file_name", options.file_name)
     if not isinstance(options.renderer, RendererDefaults):
         raise InvalidRendererOptionError("renderer must be a RendererDefaults.")
-    if not isinstance(options.background, BackgroundPreset):
-        raise InvalidRendererOptionError("background must be a BackgroundPreset.")
+    if options.background != BACKGROUND_OFF and not isinstance(
+        options.background, BackgroundPreset
+    ):
+        raise InvalidRendererOptionError(
+            "background must be a BackgroundPreset or 'off'."
+        )
     if not isinstance(options.logo_placement, LogoPlacement):
         raise InvalidRendererOptionError("logo_placement must be a LogoPlacement.")
     if options.logo is not None and not isinstance(options.logo, ImageContent):
@@ -227,7 +236,8 @@ def _validate_common_options(options: CommonCardOptions) -> None:
     _validate_int("inner_padding_x", options.inner_padding_x, minimum=0)
     _validate_int("inner_padding_y", options.inner_padding_y, minimum=0)
     _validate_int("radius", options.radius, minimum=0)
-    if options.width is not None and options.width <= options.padding * 2:
+    padding = _effective_padding(options)
+    if options.width is not None and options.width <= padding * 2:
         raise InvalidRendererOptionError(
             "width must be greater than twice the padding."
         )
@@ -319,6 +329,10 @@ def _background_gradients(background: BackgroundPreset) -> tuple[str, str, str]:
         ) from exc
 
 
+def _effective_padding(options: CommonCardOptions) -> int:
+    return 0 if options.background == BACKGROUND_OFF else options.padding
+
+
 def _card_frame_parts(
     width: float,
     height: float,
@@ -330,31 +344,40 @@ def _card_frame_parts(
     renderer: RendererDefaults,
     aria_label: str = "Rendered code card",
 ) -> list[str]:
-    gradients = _background_gradients(options.background)
-    return [
-        _svg_open(width, height, aria_label),
-        _defs(*gradients),
-        '<rect width="100%" height="100%" fill="url(#card-bg)"/>',
-        f'<rect x="{card_x}" y="{card_y}" width="{_number(card_width)}" height="{_number(card_height)}" '
-        f'rx="{options.radius}" fill="{renderer.card_fill}" '
-        f'stroke="{renderer.card_stroke}" stroke-width="3" '
-        f'filter="url(#soft-shadow)"/>',
-        _watermark_logo(
-            options,
-            card_x,
-            card_y + renderer.title_bar_height,
-            int(card_width),
-            card_height - renderer.title_bar_height,
-        ),
-        _title_bar(
-            card_x,
-            card_y,
-            int(card_width),
-            options.title,
-            _bar_logo_content(options),
-            renderer,
-        ),
-    ]
+    parts = [_svg_open(width, height, aria_label)]
+    filter_attr = ""
+    if options.background != BACKGROUND_OFF:
+        gradients = _background_gradients(options.background)
+        parts.extend(
+            [
+                _defs(*gradients),
+                '<rect width="100%" height="100%" fill="url(#card-bg)"/>',
+            ]
+        )
+        filter_attr = ' filter="url(#soft-shadow)"'
+    parts.extend(
+        [
+            f'<rect x="{card_x}" y="{card_y}" width="{_number(card_width)}" height="{_number(card_height)}" '
+            f'rx="{options.radius}" fill="{renderer.card_fill}" '
+            f'stroke="{renderer.card_stroke}" stroke-width="3"{filter_attr}/>',
+            _watermark_logo(
+                options,
+                card_x,
+                card_y + renderer.title_bar_height,
+                int(card_width),
+                card_height - renderer.title_bar_height,
+            ),
+            _title_bar(
+                card_x,
+                card_y,
+                int(card_width),
+                options.title,
+                _bar_logo_content(options),
+                renderer,
+            ),
+        ]
+    )
+    return parts
 
 
 def _number(value: float) -> str:
@@ -377,6 +400,7 @@ def _auto_image_canvas_width(content: ImageContent, options: CommonCardOptions) 
 
 def _auto_canvas_width(content_width: int, options: CommonCardOptions) -> int:
     logo_width = _logo_bar_reserved_width(_bar_logo_content(options), options.renderer)
+    padding = _effective_padding(options)
     card_width = max(
         options.renderer.min_card_width,
         options.inner_padding_x * 2 + content_width,
@@ -386,7 +410,7 @@ def _auto_canvas_width(content_width: int, options: CommonCardOptions) -> int:
             options.renderer,
         ),
     )
-    return card_width + (options.padding * 2)
+    return card_width + (padding * 2)
 
 
 def _inline_card_width(

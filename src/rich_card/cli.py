@@ -12,9 +12,12 @@ from .config import (
 )
 from .errors import RendererError
 from .options import (
+    BACKGROUND_CHOICES,
+    BackgroundChoice,
     BackgroundPreset,
     DEFAULT_CARD_RADIUS,
     LogoPlacement,
+    require_background_choice,
 )
 from .renderer_options import DEFAULT_THEME
 from .runtime import RenderSettings, render_card
@@ -56,10 +59,10 @@ def _configured_value[T](
 
 
 def _background_value(
-    ctx: typer.Context, current: BackgroundPreset, configured: BackgroundPreset | None
-) -> BackgroundPreset:
+    ctx: typer.Context, current: str, configured: BackgroundChoice | None
+) -> BackgroundChoice:
     if configured is None or not _uses_default(ctx, "background"):
-        return current
+        return require_background_choice(current)
     return configured
 
 
@@ -110,7 +113,7 @@ def _resolve_settings(
     title: str | None,
     logo: Path | None,
     logo_placement: LogoPlacement,
-    background: BackgroundPreset,
+    background: str,
     width: int | None,
     padding: int,
     inner_padding: int | None,
@@ -230,8 +233,12 @@ LogoPlacementOption = Annotated[
     typer.Option("--logo-placement", help="Where to render --logo."),
 ]
 BackgroundOption = Annotated[
-    BackgroundPreset,
-    typer.Option("--background", "-b", help="Gradient preset."),
+    str,
+    typer.Option(
+        "--background",
+        "-b",
+        help="Background option. See `rich-card --list-backgrounds`.",
+    ),
 ]
 WidthOption = Annotated[
     int | None,
@@ -243,7 +250,6 @@ PaddingOption = Annotated[
     int,
     typer.Option(
         "--padding",
-        "--background-padding",
         "-p",
         min=24,
         max=240,
@@ -254,7 +260,6 @@ InnerPaddingOption = Annotated[
     int | None,
     typer.Option(
         "--inner-padding",
-        "--terminal-padding",
         min=0,
         max=160,
         help="Padding inside the terminal card around the content or image.",
@@ -284,6 +289,10 @@ ListThemesOption = Annotated[
     bool,
     typer.Option("--list-themes", help="List syntax themes and exit."),
 ]
+ListBackgroundsOption = Annotated[
+    bool,
+    typer.Option("--list-backgrounds", help="List background options and exit."),
+]
 
 
 @app.command()
@@ -298,7 +307,7 @@ def render(
     title: TitleOption = None,
     logo: LogoOption = None,
     logo_placement: LogoPlacementOption = LogoPlacement.bar,
-    background: BackgroundOption = BackgroundPreset.aurora,
+    background: BackgroundOption = BackgroundPreset.aurora.value,
     width: WidthOption = None,
     padding: PaddingOption = 72,
     inner_padding: InnerPaddingOption = None,
@@ -307,10 +316,15 @@ def render(
     word_wrap: WordWrapOption = False,
     tab_size: TabSizeOption = 2,
     list_themes: ListThemesOption = False,
+    list_backgrounds: ListBackgroundsOption = False,
 ) -> None:
     if list_themes:
         for theme_name in [DEFAULT_THEME, *sorted(get_all_styles())]:
             typer.echo(theme_name)
+        return
+    if list_backgrounds:
+        for background_name in BACKGROUND_CHOICES:
+            typer.echo(background_name)
         return
 
     try:

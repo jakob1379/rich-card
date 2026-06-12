@@ -9,6 +9,7 @@ from rich_card.errors import (
     UnknownStyleError,
 )
 from rich_card.images import ImageContent
+from rich_card.options import BACKGROUND_OFF
 from rich_card.renderer_options import RendererDefaults
 from rich_card.svg import (
     CHROME_FONT_STACK,
@@ -57,6 +58,19 @@ class RichCardSvgTest(unittest.TestCase):
         )
 
         self.assertIn('<text x="72" y="137"', svg)
+
+    def test_render_code_card_svg_background_off_uses_transparent_tight_canvas(
+        self,
+    ) -> None:
+        svg = render_code_card_svg(
+            "x",
+            CodeCardOptions(lexer="text", background=BACKGROUND_OFF),
+        )
+
+        self.assertIn('<rect x="0" y="0"', svg)
+        self.assertNotIn('id="card-bg"', svg)
+        self.assertNotIn('fill="url(#card-bg)"', svg)
+        self.assertNotIn('filter="url(#soft-shadow)"', svg)
 
     def test_render_code_card_svg_uses_configured_renderer_colors_and_fonts(
         self,

@@ -114,6 +114,24 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn("x", svg)
 
+    def test_xdg_config_supplies_background_off(self) -> None:
+        self.write_config({"card": {"background": "off"}})
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--content",
+                "x",
+                "--output",
+                str(self.output),
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn('<rect x="0" y="0"', svg)
+        self.assertNotIn('fill="url(#card-bg)"', svg)
+
     def test_xdg_config_supplies_hidden_renderer_defaults(self) -> None:
         self.write_config(
             {
