@@ -35,12 +35,6 @@ class BackgroundPreset(StrEnum):
     winter_neva = "winter-neva"
 
 
-class LogoPlacement(StrEnum):
-    bar = "bar"
-    watermark = "watermark"
-    both = "both"
-
-
 BackgroundChoice = BackgroundPreset | Literal["off"]
 
 
@@ -71,9 +65,7 @@ BACKGROUND_PRESETS: Mapping[str, BackgroundStops] = MappingProxyType(
 )
 BACKGROUND_OFF = "off"
 BACKGROUND_CHOICES = (*BACKGROUND_PRESETS, BACKGROUND_OFF)
-LOGO_PLACEMENTS = frozenset(placement.value for placement in LogoPlacement)
 DEFAULT_BACKGROUND = BackgroundPreset.aurora
-DEFAULT_LOGO_PLACEMENT = LogoPlacement.bar
 DEFAULT_CARD_RADIUS = 12
 
 
@@ -97,11 +89,3 @@ def require_background_choice(value: str) -> BackgroundChoice:
     raise InvalidRendererOptionError(
         f"Unknown background option '{value}'. Use one of: {format_choices(BACKGROUND_CHOICES)}."
     )
-
-
-def require_logo_placement(value: str) -> LogoPlacement:
-    if value not in LOGO_PLACEMENTS:
-        raise InvalidRendererOptionError(
-            f"Unknown logo placement '{value}'. Use one of: {format_choices(LOGO_PLACEMENTS)}."
-        )
-    return LogoPlacement(value)

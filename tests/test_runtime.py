@@ -4,9 +4,10 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+import subprocess  # nosec B404 - tests assert --exec subprocess options without running commands.
 from unittest import mock
 
-from rich_card.options import BackgroundPreset, LogoPlacement
+from rich_card.options import BackgroundPreset
 from rich_card.renderer_options import DEFAULT_THEME, RendererDefaults
 from rich_card.runtime import RenderRuntimeError, RenderSettings, render_card
 
@@ -29,14 +30,21 @@ class RenderRuntimeTest(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.output = self.root / "card.svg"
 
-    def settings(self, *, logo: Path | None = None) -> RenderSettings:
+    def settings(
+        self,
+        *,
+        logo: Path | None = None,
+        watermark: Path | None = None,
+        watermark_uses_logo: bool = False,
+    ) -> RenderSettings:
         return RenderSettings(
             output=self.output,
             lexer="python",
             theme=DEFAULT_THEME,
             title=None,
             logo=logo,
-            logo_placement=LogoPlacement.bar,
+            watermark=watermark,
+            watermark_uses_logo=watermark_uses_logo,
             background=BackgroundPreset.aurora,
             width=None,
             padding=72,
@@ -49,19 +57,43 @@ class RenderRuntimeTest(unittest.TestCase):
             renderer=RendererDefaults(),
         )
 
-    def test_render_card_writes_code_content(self) -> None:
-        output = render_card(None, "print('hello')", None, self.settings())
+    def test_render_card_writes_source_file(self) -> None:
+        source = self.root / "source.py"
+        source.write_text("print('hello')\n", encoding="utf-8")
+
+        output = render_card(source, None, None, self.settings())
 
         self.assertEqual(output, self.output)
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn("print", svg)
         self.assertIn("hello", svg)
 
+    def test_render_card_exec_forces_color_environment(self) -> None:
+        completed = subprocess.CompletedProcess(["show colors"], 0, "out", "")
+
+        with mock.patch(
+            "rich_card.runtime.subprocess.run", return_value=completed
+        ) as run:
+            output = render_card(None, None, "show colors", self.settings())
+
+        self.assertEqual(output, self.output)
+        args, kwargs = run.call_args
+        self.assertEqual(args[0], "show colors")
+        self.assertTrue(kwargs["shell"])
+        self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
+        self.assertEqual(kwargs["env"]["CLICOLOR_FORCE"], "1")
+        self.assertEqual(kwargs["env"]["FORCE_COLOR"], "1")
+        self.assertNotIn("NO_COLOR", kwargs["env"])
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("❯", svg)
+        self.assertIn("show colors", svg)
+        self.assertIn("out", svg)
+
     def test_render_card_writes_image_content(self) -> None:
         image = self.root / "sample.png"
         image.write_bytes(PNG_IMAGE)
 
-        render_card(None, None, image, self.settings())
+        render_card(None, image, None, self.settings())
 
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn('href="data:image/png;base64,', svg)
@@ -72,17 +104,49 @@ class RenderRuntimeTest(unittest.TestCase):
         source = self.root / "source.py"
 
         with self.assertRaisesRegex(RenderRuntimeError, "cannot be combined"):
-            render_card(source, None, image, self.settings())
+            render_card(source, image, None, self.settings())
         with self.assertRaisesRegex(RenderRuntimeError, "cannot be combined"):
-            render_card(None, "print('hello')", image, self.settings())
+            render_card(None, image, "printf hello", self.settings())
 
     def test_render_card_loads_logo(self) -> None:
         logo = self.root / "logo.png"
         logo.write_bytes(PNG_IMAGE)
 
-        render_card(None, "print('hello')", None, self.settings(logo=logo))
+        source = self.root / "source.py"
+        source.write_text("print('hello')\n", encoding="utf-8")
+
+        render_card(source, None, None, self.settings(logo=logo))
 
         self.assertIn("rich-card-logo-bar", self.output.read_text(encoding="utf-8"))
+
+    def test_render_card_reuses_logo_as_watermark(self) -> None:
+        logo = self.root / "logo.png"
+        logo.write_bytes(PNG_IMAGE)
+
+        source = self.root / "source.py"
+        source.write_text("print('hello')\n", encoding="utf-8")
+
+        render_card(
+            source, None, None, self.settings(logo=logo, watermark_uses_logo=True)
+        )
+
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("rich-card-logo-bar", svg)
+        self.assertIn("rich-card-logo-watermark", svg)
+        self.assertEqual(svg.count("data:image/png;base64,"), 2)
+
+    def test_render_card_loads_distinct_watermark(self) -> None:
+        watermark = self.root / "watermark.png"
+        watermark.write_bytes(PNG_IMAGE)
+
+        source = self.root / "source.py"
+        source.write_text("print('hello')\n", encoding="utf-8")
+
+        render_card(source, None, None, self.settings(watermark=watermark))
+
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertNotIn("rich-card-logo-bar", svg)
+        self.assertIn("rich-card-logo-watermark", svg)
 
     def test_render_card_rejects_missing_source_content_and_stdin(self) -> None:
         stdin = mock.Mock()
@@ -97,7 +161,7 @@ class RenderRuntimeTest(unittest.TestCase):
         settings = replace(self.settings(), output=blocked_parent / "card.svg")
 
         with self.assertRaisesRegex(RenderRuntimeError, "Could not write SVG file"):
-            render_card(None, "print('hello')", None, settings)
+            render_card(None, None, "printf hello", settings)
 
 
 if __name__ == "__main__":

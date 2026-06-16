@@ -17,10 +17,6 @@ class UnknownBackgroundError(RendererError):
     pass
 
 
-class InvalidLogoPlacementError(RendererError):
-    pass
-
-
 class InvalidRendererOptionError(RendererError):
     pass
 

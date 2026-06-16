@@ -11,11 +11,10 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -26,13 +25,12 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "-t",
                 "demo.py",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -42,8 +40,6 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "-s",
                 "monokai-extended",
                 "-b",
@@ -61,6 +57,7 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
                 "-o",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -72,8 +69,6 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--width",
                 "640",
                 "--padding",
@@ -83,6 +78,7 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -112,13 +108,12 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--background",
                 "electric-twilight",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -128,13 +123,12 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--background",
                 "winter-neva",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -144,13 +138,12 @@ class RichCardsCliOptionsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--background",
                 "off",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)

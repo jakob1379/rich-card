@@ -73,8 +73,6 @@ class RichCardsCliImagesTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--title",
                 "Demo",
                 "--logo",
@@ -84,6 +82,7 @@ class RichCardsCliImagesTest(RichCardsCliTestCase):
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -92,24 +91,45 @@ class RichCardsCliImagesTest(RichCardsCliTestCase):
         self.assertIn("data:image/png;base64,", svg)
         self.assertNotIn("rich-card-logo-watermark", svg)
 
-    def test_logo_renders_as_watermark(self) -> None:
-        logo = Path(self.tmp.name) / "logo.svg"
-        logo.write_bytes(SVG_IMAGE)
+    def test_watermark_reuses_logo_when_no_image_is_provided(self) -> None:
+        logo = Path(self.tmp.name) / "logo.png"
+        logo.write_bytes(PNG_IMAGE)
 
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--logo",
                 str(logo),
-                "--logo-placement",
-                "watermark",
+                "--watermark",
                 "--width",
                 "640",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("rich-card-logo-bar", svg)
+        self.assertIn("rich-card-logo-watermark", svg)
+        self.assertEqual(svg.count("data:image/png;base64,"), 2)
+
+    def test_watermark_renders_without_logo(self) -> None:
+        watermark = Path(self.tmp.name) / "watermark.svg"
+        watermark.write_bytes(SVG_IMAGE)
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--watermark",
+                str(watermark),
+                "--width",
+                "640",
+                "--output",
+                str(self.output),
+            ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -118,29 +138,57 @@ class RichCardsCliImagesTest(RichCardsCliTestCase):
         self.assertIn("data:image/svg+xml;base64,", svg)
         self.assertNotIn("rich-card-logo-bar", svg)
 
-    def test_logo_renders_in_both_placements(self) -> None:
+    def test_logo_and_watermark_can_use_different_images(self) -> None:
+        logo = Path(self.tmp.name) / "logo.png"
+        watermark = Path(self.tmp.name) / "watermark.svg"
+        logo.write_bytes(PNG_IMAGE)
+        watermark.write_bytes(SVG_IMAGE)
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--logo",
+                str(logo),
+                "--watermark",
+                str(watermark),
+                "--width",
+                "640",
+                "--output",
+                str(self.output),
+            ],
+            input="print('hello')\n",
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("rich-card-logo-bar", svg)
+        self.assertIn("rich-card-logo-watermark", svg)
+        self.assertIn("data:image/png;base64,", svg)
+        self.assertIn("data:image/svg+xml;base64,", svg)
+
+    def test_bare_watermark_does_not_consume_following_option(self) -> None:
         logo = Path(self.tmp.name) / "logo.png"
         logo.write_bytes(PNG_IMAGE)
 
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--logo",
                 str(logo),
-                "--logo-placement",
-                "both",
+                "--watermark",
+                "--title",
+                "Demo",
                 "--width",
                 "640",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
         svg = self.output.read_text(encoding="utf-8")
-        self.assertIn("rich-card-logo-bar", svg)
+        self.assertIn("Demo", svg)
         self.assertIn("rich-card-logo-watermark", svg)
 
     def test_image_jpeg_writes_image_card(self) -> None:
@@ -175,8 +223,7 @@ class RichCardsCliImagesTest(RichCardsCliTestCase):
                 str(image),
                 "--logo",
                 str(logo),
-                "--logo-placement",
-                "both",
+                "--watermark",
                 "--width",
                 "640",
                 "--output",

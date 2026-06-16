@@ -47,6 +47,36 @@ class LoadConfigTest(unittest.TestCase):
             "renderer.card_fill must be a string",
         )
 
+    def test_rejects_invalid_terminal_palette_mode(self) -> None:
+        self.assert_config_error(
+            {"renderer": {"terminal_palette": "magic"}},
+            "renderer.terminal_palette must be one of",
+        )
+
+    def test_rejects_invalid_ansi_palette_shape(self) -> None:
+        self.assert_config_error(
+            {"renderer": {"ansi_palette": ["#000000"]}},
+            "renderer.ansi_palette must be a list of 16 hex colors",
+        )
+
+    def test_rejects_invalid_ansi_palette_color(self) -> None:
+        self.assert_config_error(
+            {"renderer": {"ansi_palette": ["#000000"] * 15 + ["red"]}},
+            r"renderer\.ansi_palette\[15\] must be a #rrggbb hex color",
+        )
+
+    def test_accepts_ansi_palette(self) -> None:
+        palette = tuple(f"#{index:02x}{index:02x}{index:02x}" for index in range(16))
+        path = self.write_config(
+            {"renderer": {"terminal_palette": "config", "ansi_palette": list(palette)}}
+        )
+
+        config = load_config(path)
+        defaults = renderer_defaults(config.renderer)
+
+        self.assertEqual(defaults.terminal_palette, "config")
+        self.assertEqual(defaults.ansi_palette, palette)
+
     def test_rejects_renderer_integer_type_failure(self) -> None:
         self.assert_config_error(
             {"renderer": {"line_height": 21.5}},

@@ -1,8 +1,12 @@
+from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
+import sys
 from typing import Annotated
 
-import typer
 from pygments.styles import get_all_styles
+import typer
+from typer.core import TyperCommand
 
 from .config import (
     ConfigError,
@@ -16,7 +20,6 @@ from .options import (
     BackgroundChoice,
     BackgroundPreset,
     DEFAULT_CARD_RADIUS,
-    LogoPlacement,
     require_background_choice,
 )
 from .renderer_options import DEFAULT_THEME
@@ -30,19 +33,80 @@ app = typer.Typer(
 
 
 CODE_ONLY_OPTIONS = ("lexer", "theme", "line_numbers", "word_wrap", "tab_size")
+REQUIRED_VALUE_OPTIONS = {"--logo"}
+WATERMARK_USE_LOGO = "__rich_card_watermark_use_logo__"
+
+
+class RichCardCommand(TyperCommand):
+    def main(
+        self,
+        args: Sequence[str] | None = None,
+        prog_name: str | None = None,
+        complete_var: str | None = None,
+        standalone_mode: bool = True,
+        windows_expand_args: bool = True,
+        **extra: object,
+    ) -> object:
+        normalized_args = _normalize_optional_watermark_args(
+            sys.argv[1:] if args is None else args
+        )
+        return super().main(
+            args=normalized_args,
+            prog_name=prog_name,
+            complete_var=complete_var,
+            standalone_mode=standalone_mode,
+            windows_expand_args=windows_expand_args,
+            **extra,
+        )
+
+
+def _normalize_optional_watermark_args(args: Sequence[str]) -> list[str]:
+    normalized: list[str] = []
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg in REQUIRED_VALUE_OPTIONS and (
+            index + 1 == len(args) or _looks_like_option(args[index + 1])
+        ):
+            return [arg]
+        normalized.append(arg)
+        if arg == "--":
+            normalized.extend(args[index + 1 :])
+            break
+        if arg == "--watermark" and (
+            index + 1 == len(args) or _looks_like_option(args[index + 1])
+        ):
+            normalized.append(WATERMARK_USE_LOGO)
+        index += 1
+    return normalized
+
+
+def _looks_like_option(value: str) -> bool:
+    return value != "-" and value.startswith("-")
 
 
 def _validate_image_mode(
-    ctx: typer.Context, source: Path | None, content: str | None
+    ctx: typer.Context, source: Path | None, command: str | None
 ) -> None:
     if source is not None:
         raise typer.BadParameter("--image cannot be used with a SOURCE path.")
-    if content is not None:
-        raise typer.BadParameter("--image cannot be used with --content.")
+    if command is not None:
+        raise typer.BadParameter("--image cannot be used with --exec.")
     for name in CODE_ONLY_OPTIONS:
         if not _uses_default(ctx, name):
             option = name.replace("_", "-")
             raise typer.BadParameter(f"--image cannot be used with --{option}.")
+
+
+def _validate_exec_mode(
+    ctx: typer.Context, source: Path | None, image: Path | None
+) -> None:
+    if source is not None:
+        raise typer.BadParameter("--exec cannot be used with a SOURCE path.")
+    if image is not None:
+        raise typer.BadParameter("--exec cannot be used with --image.")
+    if not _uses_default(ctx, "lexer"):
+        raise typer.BadParameter("--exec cannot be used with --lexer.")
 
 
 def _uses_default(ctx: typer.Context, name: str) -> bool:
@@ -74,12 +138,35 @@ def _configured_path(
     return current
 
 
-def _logo_placement_value(
-    ctx: typer.Context, current: LogoPlacement, configured: LogoPlacement | None
-) -> LogoPlacement:
-    if configured is None or not _uses_default(ctx, "logo_placement"):
-        return current
-    return configured
+def _watermark_value(
+    ctx: typer.Context,
+    logo: Path | None,
+    current: str | None,
+    configured: str | bool | None,
+) -> tuple[Path | None, bool]:
+    if not _uses_default(ctx, "watermark"):
+        return _watermark_cli_value(logo, current)
+    if configured is True:
+        if logo is None:
+            raise typer.BadParameter("card.watermark requires card.logo or --logo.")
+        return None, True
+    if isinstance(configured, str):
+        return Path(configured), False
+    return None, False
+
+
+def _watermark_cli_value(
+    logo: Path | None, watermark: str | None
+) -> tuple[Path | None, bool]:
+    if watermark == WATERMARK_USE_LOGO:
+        if logo is None:
+            raise typer.BadParameter(
+                "--watermark requires --logo or configured card.logo."
+            )
+        return None, True
+    if watermark:
+        return Path(watermark), False
+    raise typer.BadParameter("--watermark must be a non-empty image path.")
 
 
 def _inner_padding_options(
@@ -112,7 +199,7 @@ def _resolve_settings(
     theme: str,
     title: str | None,
     logo: Path | None,
-    logo_placement: LogoPlacement,
+    watermark: str | None,
     background: str,
     width: int | None,
     padding: int,
@@ -137,15 +224,18 @@ def _resolve_settings(
         if config.output is not None and _uses_default(ctx, "output")
         else output
     )
+    resolved_logo = _configured_path(ctx, "logo", logo, card_config.logo)
+    resolved_watermark, watermark_uses_logo = _watermark_value(
+        ctx, resolved_logo, watermark, card_config.watermark
+    )
     return RenderSettings(
         output=resolved_output,
         lexer=_configured_value(ctx, "lexer", lexer, card_config.lexer),
         theme=_configured_value(ctx, "theme", theme, card_config.theme),
         title=_configured_value(ctx, "title", title, card_config.title),
-        logo=_configured_path(ctx, "logo", logo, card_config.logo),
-        logo_placement=_logo_placement_value(
-            ctx, logo_placement, card_config.logo_placement
-        ),
+        logo=resolved_logo,
+        watermark=resolved_watermark,
+        watermark_uses_logo=watermark_uses_logo,
         background=_background_value(ctx, background, card_config.background),
         width=_configured_value(ctx, "width", width, card_config.width),
         padding=_configured_value(ctx, "padding", padding, card_config.padding),
@@ -171,11 +261,9 @@ SourceArg = Annotated[
         help="Optional source file. Omit to read from stdin.",
     ),
 ]
-ContentOption = Annotated[
+ExecOption = Annotated[
     str | None,
-    typer.Option(
-        "--content", "-c", help="Inline code content. Takes precedence over SOURCE."
-    ),
+    typer.Option("--exec", "-x", help="Run a command and render its terminal output."),
 ]
 ImageOption = Annotated[
     Path | None,
@@ -225,12 +313,16 @@ LogoOption = Annotated[
         file_okay=True,
         dir_okay=False,
         readable=True,
-        help="Logo image to place in the title bar, terminal background, or both. Supports PNG, JPEG, and SVG.",
+        help="Logo image to place in the title bar. Supports PNG, JPEG, and SVG.",
     ),
 ]
-LogoPlacementOption = Annotated[
-    LogoPlacement,
-    typer.Option("--logo-placement", help="Where to render --logo."),
+WatermarkOption = Annotated[
+    str | None,
+    typer.Option(
+        "--watermark",
+        metavar="[FILE]",
+        help="Render a watermark. Omit FILE to reuse --logo. Supports PNG, JPEG, and SVG.",
+    ),
 ]
 BackgroundOption = Annotated[
     str,
@@ -295,18 +387,18 @@ ListBackgroundsOption = Annotated[
 ]
 
 
-@app.command()
+@app.command(cls=RichCardCommand)
 def render(
     ctx: typer.Context,
     source: SourceArg = None,
-    content: ContentOption = None,
+    command: ExecOption = None,
     image: ImageOption = None,
     output: OutputOption = Path("card.svg"),
     lexer: LexerOption = None,
     theme: ThemeOption = DEFAULT_THEME,
     title: TitleOption = None,
     logo: LogoOption = None,
-    logo_placement: LogoPlacementOption = LogoPlacement.bar,
+    watermark: WatermarkOption = None,
     background: BackgroundOption = BackgroundPreset.aurora.value,
     width: WidthOption = None,
     padding: PaddingOption = 72,
@@ -337,7 +429,7 @@ def render(
             theme,
             title,
             logo,
-            logo_placement,
+            watermark,
             background,
             width,
             padding,
@@ -347,9 +439,13 @@ def render(
             word_wrap,
             tab_size,
         )
+        if command is not None:
+            _validate_exec_mode(ctx, source, image)
+            if settings.title is None:
+                settings = replace(settings, title=command)
         if image is not None:
-            _validate_image_mode(ctx, source, content)
-        output_path = render_card(source, content, image, settings)
+            _validate_image_mode(ctx, source, command)
+        output_path = render_card(source, image, command, settings)
     except (ConfigError, RendererError) as exc:
         raise typer.BadParameter(str(exc)) from exc
 

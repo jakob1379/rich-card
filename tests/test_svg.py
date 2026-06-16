@@ -234,13 +234,13 @@ class RichCardSvgTest(unittest.TestCase):
         with self.assertRaises(UnknownStyleError):
             render_code_card_svg("x = 1", CodeCardOptions(theme="bogus-style"))
 
-    def test_render_code_card_svg_rejects_invalid_logo_placement(self) -> None:
-        logo = ImageContent("data:image/svg+xml;base64,logo", 10, 10)
+    def test_render_code_card_svg_rejects_invalid_watermark(self) -> None:
+        watermark = cast(Any, object())
 
-        with self.assertRaises(InvalidRendererOptionError):
-            render_code_card_svg(
-                "x = 1", CodeCardOptions(logo=logo, logo_placement=cast(Any, "corner"))
-            )
+        with self.assertRaisesRegex(
+            InvalidRendererOptionError, "watermark must be an ImageContent or None"
+        ):
+            render_code_card_svg("x = 1", CodeCardOptions(watermark=watermark))
 
     def test_render_code_card_svg_rejects_invalid_public_geometry(self) -> None:
         with self.assertRaisesRegex(

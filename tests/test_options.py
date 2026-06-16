@@ -10,12 +10,8 @@ from rich_card.options import (
     BackgroundPreset,
     DEFAULT_BACKGROUND,
     DEFAULT_CARD_RADIUS,
-    DEFAULT_LOGO_PLACEMENT,
-    LOGO_PLACEMENTS,
-    LogoPlacement,
     require_background,
     require_background_choice,
-    require_logo_placement,
 )
 
 
@@ -36,11 +32,6 @@ class RichCardOptionsTest(unittest.TestCase):
         self.assertEqual(require_background_choice("aurora"), BackgroundPreset.aurora)
         self.assertEqual(require_background_choice("off"), BACKGROUND_OFF)
 
-    def test_require_logo_placement_returns_valid_input(self) -> None:
-        self.assertEqual(require_logo_placement("bar"), LogoPlacement.bar)
-        self.assertEqual(require_logo_placement("watermark"), LogoPlacement.watermark)
-        self.assertEqual(require_logo_placement("both"), LogoPlacement.both)
-
     def test_require_background_rejects_invalid_value_with_choices(self) -> None:
         with self.assertRaisesRegex(
             ValueError,
@@ -55,23 +46,12 @@ class RichCardOptionsTest(unittest.TestCase):
         ):
             require_background_choice("bogus")
 
-    def test_require_logo_placement_rejects_invalid_value_with_choices(self) -> None:
-        with self.assertRaisesRegex(
-            ValueError,
-            r"Unknown logo placement 'corner'\. Use one of: .*bar.*both.*watermark",
-        ):
-            require_logo_placement("corner")
-
     def test_defaults_are_coherent(self) -> None:
         self.assertEqual(
             require_background(DEFAULT_BACKGROUND.value), DEFAULT_BACKGROUND
         )
-        self.assertEqual(
-            require_logo_placement(DEFAULT_LOGO_PLACEMENT.value), DEFAULT_LOGO_PLACEMENT
-        )
         self.assertIn(DEFAULT_BACKGROUND.value, BACKGROUND_PRESETS)
         self.assertIn(BACKGROUND_OFF, BACKGROUND_CHOICES)
-        self.assertIn(DEFAULT_LOGO_PLACEMENT.value, LOGO_PLACEMENTS)
         self.assertEqual(DEFAULT_CARD_RADIUS, 12)
         self.assertEqual(len(BACKGROUND_PRESETS[DEFAULT_BACKGROUND.value]), 3)
 

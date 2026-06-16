@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import html
 from math import ceil, isfinite, sqrt
-from typing import Literal, cast
+from typing import Literal
 
 from rich.cells import cell_len
 
@@ -18,7 +18,6 @@ from .options import (
     BackgroundChoice,
     DEFAULT_CARD_RADIUS,
     BackgroundPreset,
-    LogoPlacement,
 )
 from .renderer_options import DEFAULT_RENDERER, DEFAULT_THEME, RendererDefaults
 from .svg_fragments import (
@@ -29,7 +28,7 @@ from .svg_fragments import (
     _wrap_fragments as _wrap_fragments,
 )
 from .svg_markup import _code_lines, _inline_tspans
-from .svg_syntax import _highlight_lines
+from .svg_syntax import _highlight_lines, _terminal_renderer
 
 CARD_FILL = DEFAULT_RENDERER.card_fill
 CARD_STROKE = DEFAULT_RENDERER.card_stroke
@@ -73,7 +72,7 @@ class CommonCardOptions:
     inner_padding_y: int = INNER_PADDING_Y
     radius: int = DEFAULT_CARD_RADIUS
     logo: ImageContent | None = None
-    logo_placement: LogoPlacement = LogoPlacement.bar
+    watermark: ImageContent | None = None
     renderer: RendererDefaults = field(default_factory=RendererDefaults)
 
     def __post_init__(self) -> None:
@@ -97,7 +96,9 @@ class ImageCardOptions(CommonCardOptions):
 
 def render_code_card_svg(code: str, options: CodeCardOptions) -> str:
     """Render code as SVG; renderer option failures raise RendererError."""
-    renderer = options.renderer
+    renderer = _terminal_renderer(
+        code, options.renderer, options.lexer, options.file_name
+    )
     _validate_renderer_defaults(renderer)
 
     raw_lines = _highlight_lines(
@@ -237,10 +238,12 @@ def _validate_common_options(options: CommonCardOptions) -> None:
         raise InvalidRendererOptionError(
             "background must be a BackgroundPreset or 'off'."
         )
-    if not isinstance(options.logo_placement, LogoPlacement):
-        raise InvalidRendererOptionError("logo_placement must be a LogoPlacement.")
     if options.logo is not None and not isinstance(options.logo, ImageContent):
         raise InvalidRendererOptionError("logo must be an ImageContent or None.")
+    if options.watermark is not None and not isinstance(
+        options.watermark, ImageContent
+    ):
+        raise InvalidRendererOptionError("watermark must be an ImageContent or None.")
     _validate_optional_int("width", options.width, minimum=1)
     _validate_int("padding", options.padding, minimum=0)
     _validate_int("inner_padding_x", options.inner_padding_x, minimum=0)
@@ -382,7 +385,7 @@ def _card_frame_parts(
                 card_y,
                 int(card_width),
                 options.title,
-                _bar_logo_content(options),
+                options.logo,
                 renderer,
             ),
         ]
@@ -532,7 +535,7 @@ def _auto_image_canvas_width(content: ImageContent, options: CommonCardOptions) 
 
 
 def _auto_canvas_width(content_width: int, options: CommonCardOptions) -> int:
-    logo_width = _logo_bar_reserved_width(_bar_logo_content(options), options.renderer)
+    logo_width = _logo_bar_reserved_width(options.logo, options.renderer)
     padding = _effective_padding(options)
     card_width = max(
         options.renderer.min_card_width,
@@ -653,20 +656,20 @@ def _bar_logo(
 def _watermark_logo(
     options: CommonCardOptions, x: int, y: float, width: int, height: float
 ) -> str:
-    if not _has_logo_placement(options, LogoPlacement.watermark):
+    if options.watermark is None:
         return ""
 
-    logo = cast(ImageContent, options.logo)
+    watermark = options.watermark
     renderer = options.renderer
     max_width = width * renderer.logo_watermark_width_ratio
     max_height = max(1.0, height * 0.72)
-    logo_width, logo_height = _scaled_logo_size(logo, max_width, max_height)
+    logo_width, logo_height = _scaled_logo_size(watermark, max_width, max_height)
     image_x = x + ((width - logo_width) / 2)
     image_y = y + ((height - logo_height) / 2)
     return (
         f'<image class="rich-card-logo rich-card-logo-watermark" x="{image_x:.1f}" '
         f'y="{image_y:.1f}" width="{logo_width:.1f}" height="{logo_height:.1f}" '
-        f'opacity="{renderer.logo_watermark_opacity:.3g}" href="{html.escape(logo.data_uri, quote=True)}" '
+        f'opacity="{renderer.logo_watermark_opacity:.3g}" href="{html.escape(watermark.data_uri, quote=True)}" '
         'preserveAspectRatio="xMidYMid meet"/>'
     )
 
@@ -676,18 +679,6 @@ def _bar_logo_size_limit(renderer: RendererDefaults) -> tuple[float, float]:
         float(renderer.logo_bar_max_width),
         float(min(renderer.logo_bar_max_height, renderer.title_bar_height)),
     )
-
-
-def _has_logo_placement(options: CommonCardOptions, placement: LogoPlacement) -> bool:
-    if options.logo is None:
-        return False
-    return options.logo_placement in {placement, LogoPlacement.both}
-
-
-def _bar_logo_content(options: CommonCardOptions) -> ImageContent | None:
-    if _has_logo_placement(options, LogoPlacement.bar):
-        return options.logo
-    return None
 
 
 def _scaled_logo_size(

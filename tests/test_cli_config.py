@@ -5,7 +5,7 @@ from pathlib import Path
 from rich_card.cli import app
 from rich_card.config import default_config_path
 
-from tests.cli_helpers import PNG_IMAGE, RichCardsCliTestCase
+from tests.cli_helpers import PNG_IMAGE, SVG_IMAGE, RichCardsCliTestCase
 
 
 class RichCardsCliConfigTest(RichCardsCliTestCase):
@@ -41,11 +41,10 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "\tfoo",
                 "--lexer",
                 "text",
             ],
+            input="\tfoo\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -74,8 +73,6 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--background",
                 "electric-twilight",
                 "--width",
@@ -88,6 +85,7 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -103,11 +101,10 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -120,11 +117,10 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -150,13 +146,12 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--lexer",
                 "text",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -176,7 +171,7 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
             {
                 "card": {
                     "logo": str(logo),
-                    "logo_placement": "watermark",
+                    "watermark": True,
                 },
                 "renderer": {
                     "logo_watermark_opacity": 0.5,
@@ -188,29 +183,28 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--width",
                 "640",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn("rich-card-logo-watermark", svg)
-        self.assertNotIn("rich-card-logo-bar", svg)
+        self.assertIn("rich-card-logo-bar", svg)
+        self.assertEqual(svg.count("data:image/png;base64,"), 2)
         self.assertIn('opacity="0.5"', svg)
 
-    def test_cli_logo_placement_overrides_xdg_config_default(self) -> None:
-        logo = Path(self.tmp.name) / "logo.png"
-        logo.write_bytes(PNG_IMAGE)
+    def test_xdg_config_supplies_distinct_watermark_image(self) -> None:
+        watermark = Path(self.tmp.name) / "watermark.png"
+        watermark.write_bytes(PNG_IMAGE)
         self.write_config(
             {
                 "card": {
-                    "logo": str(logo),
-                    "logo_placement": "watermark",
+                    "watermark": str(watermark),
                 },
             }
         )
@@ -218,18 +212,48 @@ class RichCardsCliConfigTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
-                "--logo-placement",
-                "bar",
                 "--width",
                 "640",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("rich-card-logo-watermark", svg)
+        self.assertNotIn("rich-card-logo-bar", svg)
+
+    def test_cli_watermark_overrides_xdg_config_default(self) -> None:
+        logo = Path(self.tmp.name) / "logo.png"
+        watermark = Path(self.tmp.name) / "watermark.svg"
+        logo.write_bytes(PNG_IMAGE)
+        watermark.write_bytes(SVG_IMAGE)
+        self.write_config(
+            {
+                "card": {
+                    "logo": str(logo),
+                    "watermark": True,
+                },
+            }
+        )
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--watermark",
+                str(watermark),
+                "--width",
+                "640",
+                "--output",
+                str(self.output),
+            ],
+            input="print('hello')\n",
         )
 
         self.assertEqual(result.exit_code, 0, result.output)
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn("rich-card-logo-bar", svg)
-        self.assertNotIn("rich-card-logo-watermark", svg)
+        self.assertIn("rich-card-logo-watermark", svg)
+        self.assertIn("data:image/svg+xml;base64,", svg)

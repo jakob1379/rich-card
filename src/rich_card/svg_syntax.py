@@ -22,11 +22,17 @@ from pygments.token import (
 )
 from pygments.util import ClassNotFound
 from rich.ansi import AnsiDecoder
+from rich.color import ColorType
 from rich.console import Console
 
 from .errors import UnknownLexerError, UnknownStyleError
 from .renderer_options import DEFAULT_RENDERER, DEFAULT_THEME, RendererDefaults
 from .svg_fragments import Fragment, _append_fragment
+from .terminal_palette import (
+    TerminalPalette,
+    renderer_with_terminal_palette,
+    resolve_terminal_palette,
+)
 
 ANSI_ESCAPE_PATTERN = re.compile(
     r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[@-Z\\-_])"
@@ -94,6 +100,7 @@ def _highlight_lines(
     tab_size: int,
     theme: str,
 ) -> list[list[Fragment]]:
+    code = _normalize_terminal_newlines(code)
     if not code:
         return [[Fragment("", renderer.default_text)]]
 
@@ -112,6 +119,17 @@ def _highlight_lines(
     if lines and not lines[-1]:
         lines.pop()
     return lines or [[Fragment("", renderer.default_text)]]
+
+
+def _terminal_renderer(
+    code: str,
+    renderer: RendererDefaults,
+    lexer_name: str | None,
+    file_name: str | None,
+) -> RendererDefaults:
+    if ANSI_ESCAPE_PATTERN.search(code) and lexer_name is None and file_name is None:
+        return renderer_with_terminal_palette(renderer)
+    return renderer
 
 
 def _load_lexer(code: str, lexer_name: str | None, file_name: str | None):
@@ -141,10 +159,11 @@ def _load_style(theme: str):
 
 
 def _ansi_lines(code: str, renderer: RendererDefaults) -> list[list[Fragment]]:
+    palette = resolve_terminal_palette(renderer)
     lines: list[list[Fragment]] = []
     for text in AnsiDecoder().decode(code):
         line = [
-            _segment_to_fragment(segment.text, segment.style, renderer)
+            _segment_to_fragment(segment.text, segment.style, palette)
             for segment in text.render(ANSI_CONSOLE)
         ]
         lines.append([fragment for fragment in line if fragment.text])
@@ -153,14 +172,23 @@ def _ansi_lines(code: str, renderer: RendererDefaults) -> list[list[Fragment]]:
     return lines or [[Fragment("", renderer.default_text)]]
 
 
-def _segment_to_fragment(text: str, style, renderer: RendererDefaults) -> Fragment:
-    color = renderer.default_text
+def _segment_to_fragment(text: str, style, palette: TerminalPalette) -> Fragment:
+    color = palette.foreground
     if style and style.color:
-        triplet = style.color.get_truecolor()
-        color = f"#{triplet.red:02x}{triplet.green:02x}{triplet.blue:02x}"
+        if style.color.type == ColorType.STANDARD and style.color.number is not None:
+            color = palette.colors[style.color.number]
+        elif style.color.type == ColorType.DEFAULT:
+            color = palette.foreground
+        else:
+            triplet = style.color.get_truecolor()
+            color = f"#{triplet.red:02x}{triplet.green:02x}{triplet.blue:02x}"
     return Fragment(
         text, color, bool(style and style.bold), bool(style and style.italic)
     )
+
+
+def _normalize_terminal_newlines(code: str) -> str:
+    return code.replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _token_style(token_type, style, renderer: RendererDefaults) -> Fragment:

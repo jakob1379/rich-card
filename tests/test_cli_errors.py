@@ -17,11 +17,10 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -37,11 +36,10 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -55,11 +53,10 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -72,11 +69,10 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -89,11 +85,10 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -106,11 +101,10 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -123,11 +117,10 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(self.output),
             ],
+            input="x\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -148,11 +141,10 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "x",
                 "--output",
                 str(output),
             ],
+            input="x\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -163,13 +155,12 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--caption",
                 "removed",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -182,13 +173,12 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
                 result = self.runner.invoke(
                     app,
                     [
-                        "--content",
-                        "print('hello')",
                         option,
                         "20",
                         "--output",
                         str(self.output),
                     ],
+                    input="print('hello')\n",
                 )
 
                 self.assertNotEqual(result.exit_code, 0)
@@ -214,22 +204,52 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("--image cannot be used with --lexer", result.output)
 
-    def test_xdg_config_rejects_unknown_logo_placement(self) -> None:
+    def test_xdg_config_rejects_removed_logo_placement_key(self) -> None:
         self.write_config({"card": {"logo_placement": "corner"}})
 
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
-        self.assertIn("card.logo_placement", result.output)
-        self.assertIn("must be one of", result.output)
+        self.assertIn("unknown", result.output)
+        self.assertIn("card key: logo_placement", result.output)
+
+    def test_xdg_config_rejects_invalid_watermark_type(self) -> None:
+        self.write_config({"card": {"watermark": 12}})
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--output",
+                str(self.output),
+            ],
+            input="print('hello')\n",
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("card.watermark", result.output)
+        self.assertIn("must be a string", result.output)
+
+    def test_xdg_config_watermark_true_requires_logo(self) -> None:
+        self.write_config({"card": {"watermark": True}})
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--output",
+                str(self.output),
+            ],
+            input="print('hello')\n",
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("card.watermark requires card.logo or --logo", result.output)
 
     def test_invalid_image_data_reports_cli_error(self) -> None:
         image = Path(self.tmp.name) / "sample.png"
@@ -276,17 +296,64 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--logo",
                 str(logo),
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("Invalid PNG image", result.output)
+
+    def test_invalid_watermark_data_reports_cli_error(self) -> None:
+        watermark = Path(self.tmp.name) / "watermark.png"
+        watermark.write_bytes(b"not a png")
+
+        result = self.runner.invoke(
+            app,
+            [
+                "--watermark",
+                str(watermark),
+                "--output",
+                str(self.output),
+            ],
+            input="print('hello')\n",
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("Could not load watermark image", result.output)
+        self.assertIn("Invalid PNG image", result.output)
+
+    def test_bare_watermark_requires_logo(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--watermark",
+                "--output",
+                str(self.output),
+            ],
+            input="print('hello')\n",
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("--watermark requires --logo", result.output)
+
+    def test_logo_requires_image_even_when_watermark_follows(self) -> None:
+        result = self.runner.invoke(
+            app,
+            [
+                "--logo",
+                "--watermark",
+                "--output",
+                str(self.output),
+            ],
+            input="print('hello')\n",
+        )
+
+        self.assertNotEqual(result.exit_code, 0)
+        self.assertIn("Option '--logo' requires an argument", result.output)
 
     def test_invalid_image_data_reports_before_invalid_logo_data(self) -> None:
         image = Path(self.tmp.name) / "sample.png"
@@ -367,13 +434,12 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--background",
                 "purple-haze",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)
@@ -384,13 +450,12 @@ class RichCardsCliErrorsTest(RichCardsCliTestCase):
         result = self.runner.invoke(
             app,
             [
-                "--content",
-                "print('hello')",
                 "--theme",
                 "definitely-not-a-theme",
                 "--output",
                 str(self.output),
             ],
+            input="print('hello')\n",
         )
 
         self.assertNotEqual(result.exit_code, 0)

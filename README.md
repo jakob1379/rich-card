@@ -12,7 +12,9 @@ Render a source file or inline snippet:
 
 ```bash
 rich-card pyproject.toml
-rich-card --content 'print("hi")' --lexer python -o hello.svg
+rich-card --lexer python -o hello.svg <<'EOF'
+print("hi")
+EOF
 ```
 
 Piped terminal output is read from stdin. ANSI colors are preserved, and eza
@@ -20,6 +22,8 @@ icons render when a Nerd Font such as Symbols Nerd Font Mono is installed:
 
 ```bash
 eza --tree --icons=always --git-ignore --colour=always src/ | rich-card --title tree -o tree.svg
+CLICOLOR_FORCE=1 ruff --help | rich-card --title "ruff --help" -o ruff-help.svg
+rich-card --exec "ruff --help" -o ruff-help.svg
 ```
 
 Images can be framed in the same card style:
@@ -33,7 +37,9 @@ fixed canvas width. Use `--padding` for the outer gradient margin and
 `--inner-padding` for the padding inside the terminal card:
 
 ```bash
-rich-card --content 'print("hi")' --width 1080 --padding 80 --inner-padding 32 -o fixed-card.svg
+rich-card --width 1080 --padding 80 --inner-padding 32 -o fixed-card.svg <<'EOF'
+print("hi")
+EOF
 ```
 
 ## Configuration
@@ -48,7 +54,7 @@ configured defaults.
   "card": {
     "theme": "monokai-extended",
     "logo": "logo.svg",
-    "logo_placement": "both",
+    "watermark": true,
     "background": "aurora",
     "padding": 72,
     "inner_padding": 30,
@@ -60,6 +66,7 @@ configured defaults.
   "renderer": {
     "card_fill": "#26282b",
     "card_stroke": "#3b3e43",
+    "terminal_palette": "auto",
     "code_font_stack": "'JetBrains Mono', 'Cascadia Code', monospace",
     "logo_bar_max_height": 26,
     "logo_bar_max_width": 120,
@@ -106,7 +113,7 @@ $ rich-card [OPTIONS] [SOURCE]
 
 **Options**:
 
-- `-c, --content TEXT`: Inline code content. Takes precedence over SOURCE.
+- `-x, --exec TEXT`: Run a command and render its terminal output.
 - `--image FILE`: Image file to render inside the card. Supports PNG, JPEG, and
   SVG.
 - `-o, --output FILE`: SVG file to write. [default: card.svg]
@@ -115,10 +122,10 @@ $ rich-card [OPTIONS] [SOURCE]
 - `-s, --theme TEXT`: Pygments theme name. See `rich-card --list-themes`.
   [default: monokai-extended]
 - `-t, --title TEXT`: Optional card title shown in the card chrome.
-- `--logo FILE`: Logo image to place in the title bar, terminal background, or
-  both. Supports PNG, JPEG, and SVG.
-- `--logo-placement [bar|watermark|both]`: Where to render --logo. [default:
-  bar]
+- `--logo FILE`: Logo image to place in the title bar. Supports PNG, JPEG, and
+  SVG.
+- `--watermark [FILE]`: Render a watermark. Omit FILE to reuse --logo. Supports
+  PNG, JPEG, and SVG.
 - `-b, --background TEXT`: Background option. See
   `rich-card --list-backgrounds`. [default: aurora]
 - `-w, --width INTEGER RANGE`: Fixed SVG canvas width in pixels.

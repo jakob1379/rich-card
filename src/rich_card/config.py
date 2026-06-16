@@ -10,13 +10,12 @@ from typing import Any
 
 from .options import (
     BACKGROUND_CHOICES,
-    LOGO_PLACEMENTS,
     BackgroundChoice,
-    LogoPlacement,
     require_background_choice,
-    require_logo_placement,
 )
 from .renderer_options import RendererDefaults
+
+TERMINAL_PALETTES = frozenset({"auto", "config", "builtin"})
 
 
 class ConfigError(ValueError):
@@ -29,7 +28,7 @@ class CardConfig:
     theme: str | None = None
     title: str | None = None
     logo: str | None = None
-    logo_placement: LogoPlacement | None = None
+    watermark: str | bool | None = None
     background: BackgroundChoice | None = None
     width: int | None = None
     padding: int | None = None
@@ -48,6 +47,8 @@ class RendererConfig:
     card_stroke: str | None = None
     muted_text: str | None = None
     default_text: str | None = None
+    terminal_palette: str | None = None
+    ansi_palette: tuple[str, ...] | None = None
     code_font_stack: str | None = None
     ui_font_stack: str | None = None
     chrome_font_stack: str | None = None
@@ -156,9 +157,7 @@ def _card_config(path: Path, raw: Any) -> CardConfig:
         theme=_optional_str(path, "card.theme", raw.get("theme")),
         title=_optional_str(path, "card.title", raw.get("title")),
         logo=_optional_str(path, "card.logo", raw.get("logo")),
-        logo_placement=_optional_logo_placement(
-            path, "card.logo_placement", raw.get("logo_placement"), LOGO_PLACEMENTS
-        ),
+        watermark=_optional_watermark(path, "card.watermark", raw.get("watermark")),
         background=_optional_background(
             path, "card.background", raw.get("background"), BACKGROUND_CHOICES
         ),
@@ -207,6 +206,15 @@ def _renderer_config(path: Path, raw: Any) -> RendererConfig:
         muted_text=_optional_str(path, "renderer.muted_text", raw.get("muted_text")),
         default_text=_optional_str(
             path, "renderer.default_text", raw.get("default_text")
+        ),
+        terminal_palette=_optional_choice(
+            path,
+            "renderer.terminal_palette",
+            raw.get("terminal_palette"),
+            TERMINAL_PALETTES,
+        ),
+        ansi_palette=_optional_ansi_palette(
+            path, "renderer.ansi_palette", raw.get("ansi_palette")
         ),
         code_font_stack=_optional_str(
             path, "renderer.code_font_stack", raw.get("code_font_stack")
@@ -303,12 +311,41 @@ def _optional_str(path: Path, name: str, value: Any) -> str | None:
     return value
 
 
+def _optional_watermark(path: Path, name: str, value: Any) -> str | bool | None:
+    if value is None or isinstance(value, bool):
+        return value
+    return _optional_str(path, name, value)
+
+
 def _optional_bool(path: Path, name: str, value: Any) -> bool | None:
     if value is None:
         return None
     if not isinstance(value, bool):
         raise ConfigError(f"{path}: {name} must be a boolean.")
     return value
+
+
+def _optional_ansi_palette(path: Path, name: str, value: Any) -> tuple[str, ...] | None:
+    if value is None:
+        return None
+    if not isinstance(value, list) or len(value) != 16:
+        raise ConfigError(f"{path}: {name} must be a list of 16 hex colors.")
+    colors: list[str] = []
+    for index, color in enumerate(value):
+        item_name = f"{name}[{index}]"
+        parsed = _optional_str(path, item_name, color)
+        if parsed is None or not _is_hex_color(parsed):
+            raise ConfigError(f"{path}: {item_name} must be a #rrggbb hex color.")
+        colors.append(parsed.lower())
+    return tuple(colors)
+
+
+def _is_hex_color(value: str) -> bool:
+    return (
+        len(value) == 7
+        and value.startswith("#")
+        and all(character in "0123456789abcdefABCDEF" for character in value[1:])
+    )
 
 
 def _optional_choice(
@@ -329,13 +366,6 @@ def _optional_background(
 ) -> BackgroundChoice | None:
     choice = _optional_choice(path, name, value, choices)
     return None if choice is None else require_background_choice(choice)
-
-
-def _optional_logo_placement(
-    path: Path, name: str, value: Any, choices: Collection[str]
-) -> LogoPlacement | None:
-    choice = _optional_choice(path, name, value, choices)
-    return None if choice is None else require_logo_placement(choice)
 
 
 def _optional_int(

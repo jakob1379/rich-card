@@ -62,6 +62,37 @@ class RichCardSvgTextTest(unittest.TestCase):
 
         self.assertEqual([Fragment("red", "#800000")], lines[0])
 
+    def test_highlight_lines_maps_standard_ansi_through_configured_palette(
+        self,
+    ) -> None:
+        palette = tuple(f"#{index:02x}{index:02x}{index:02x}" for index in range(16))
+        renderer = RendererDefaults(terminal_palette="config", ansi_palette=palette)
+
+        lines = self.highlight(
+            "\x1b[31mred\x1b[0m",
+            CodeCardOptions(renderer=renderer),
+        )
+
+        self.assertEqual([Fragment("red", "#010101")], lines[0])
+
+    def test_highlight_lines_keeps_truecolor_ansi_exact(self) -> None:
+        palette = tuple("#111111" for _index in range(16))
+        renderer = RendererDefaults(terminal_palette="config", ansi_palette=palette)
+
+        lines = self.highlight(
+            "\x1b[38;2;1;2;3mtruecolor\x1b[0m",
+            CodeCardOptions(renderer=renderer),
+        )
+
+        self.assertEqual([Fragment("truecolor", "#010203")], lines[0])
+
+    def test_highlight_lines_normalizes_terminal_crlf(self) -> None:
+        lines = self.highlight("Ruff\r\n\x1b[32mUsage:\x1b[0m\r\n", CodeCardOptions())
+
+        text = "\n".join("".join(fragment.text for fragment in line) for line in lines)
+
+        self.assertEqual(text, "Ruff\nUsage:")
+
     def test_highlight_lines_rejects_unknown_lexer(self) -> None:
         with self.assertRaises(UnknownLexerError):
             self.highlight("x", CodeCardOptions(lexer="bogus-lexer"))
