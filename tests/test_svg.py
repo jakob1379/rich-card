@@ -174,6 +174,42 @@ class RichCardSvgTest(unittest.TestCase):
         self.assertIn('href="data:image/png;base64,image"', svg)
         self.assertIn('preserveAspectRatio="xMidYMid meet"', svg)
 
+    def test_render_image_card_svg_rounds_flush_image_bottom_corners(self) -> None:
+        image = ImageContent("data:image/png;base64,image", 520, 200)
+
+        svg = render_image_card_svg(
+            image,
+            ImageCardOptions(width=664, inner_padding_x=0, inner_padding_y=0),
+        )
+
+        self.assertIn('<clipPath id="image-clip">', svg)
+        self.assertIn("M 72 122 H 592 V 310 A 12 12 0 0 1 580 322", svg)
+        self.assertIn("H 84 A 12 12 0 0 1 72 310 V 122 Z", svg)
+        self.assertIn('clip-path="url(#image-clip)"', svg)
+
+    def test_render_image_card_svg_rounds_tightly_padded_image_bottom_corners(
+        self,
+    ) -> None:
+        image = ImageContent("data:image/png;base64,image", 520, 200)
+
+        svg = render_image_card_svg(
+            image,
+            ImageCardOptions(width=664, inner_padding_x=1, inner_padding_y=1),
+        )
+
+        self.assertIn('<clipPath id="image-clip">', svg)
+        self.assertIn("A 12 12 0 0 1 584.8 322.2", svg)
+        self.assertIn("A 12 12 0 0 1 73 316", svg)
+        self.assertIn('clip-path="url(#image-clip)"', svg)
+
+    def test_render_image_card_svg_keeps_safely_padded_image_rectangular(self) -> None:
+        image = ImageContent("data:image/png;base64,image", 520, 200)
+
+        svg = render_image_card_svg(image, ImageCardOptions(width=664))
+
+        self.assertNotIn('id="image-clip"', svg)
+        self.assertNotIn('clip-path="url(#image-clip)"', svg)
+
     def test_render_image_card_svg_title_uses_plain_ui_font_for_digits(self) -> None:
         file_name = "Screenshot from 2026-06-09 15-26-17.png"
         image = ImageContent("data:image/png;base64,image", 12, 8)

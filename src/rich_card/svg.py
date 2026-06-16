@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import html
-from math import ceil, isfinite
-from typing import cast
+from math import ceil, isfinite, sqrt
+from typing import Literal, cast
 
 from rich.cells import cell_len
 
@@ -205,9 +205,19 @@ def render_image_card_svg(content: ImageContent, options: ImageCardOptions) -> s
         renderer,
         "Rendered image card",
     )
-    parts.append(
-        f'<image x="{image_x:.1f}" y="{image_y:.1f}" width="{image_width:.1f}" height="{image_height:.1f}" '
-        f'href="{html.escape(content.data_uri, quote=True)}" preserveAspectRatio="xMidYMid meet"/>'
+    parts.extend(
+        _image_card_content_parts(
+            content,
+            image_x,
+            image_y,
+            image_width,
+            image_height,
+            card_x,
+            card_y,
+            card_width,
+            card_height,
+            options,
+        )
     )
     parts.append("</svg>")
     return "\n".join(parts)
@@ -378,6 +388,129 @@ def _card_frame_parts(
         ]
     )
     return parts
+
+
+def _image_card_content_parts(
+    content: ImageContent,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    card_x: float,
+    card_y: float,
+    card_width: float,
+    card_height: float,
+    options: ImageCardOptions,
+) -> list[str]:
+    clip = _image_card_clip_path(
+        x,
+        y,
+        width,
+        height,
+        card_x,
+        card_y,
+        card_width,
+        card_height,
+        options.radius,
+    )
+    clip_attr = ' clip-path="url(#image-clip)"' if clip else ""
+    image = (
+        f'<image x="{x:.1f}" y="{y:.1f}" width="{width:.1f}" height="{height:.1f}" '
+        f'href="{html.escape(content.data_uri, quote=True)}" preserveAspectRatio="xMidYMid meet"{clip_attr}/>'
+    )
+    return [clip, image] if clip else [image]
+
+
+def _image_card_clip_path(
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    card_x: float,
+    card_y: float,
+    card_width: float,
+    card_height: float,
+    card_radius: float,
+) -> str:
+    if card_radius <= 0:
+        return ""
+
+    radius = min(float(card_radius), card_width / 2, card_height / 2)
+    if radius <= 0:
+        return ""
+
+    right = x + width
+    image_bottom = y + height
+    card_right = card_x + card_width
+    card_bottom = card_y + card_height
+    left_gap = max(0.0, x - card_x)
+    right_gap = max(0.0, card_right - right)
+    bottom_gap = max(0.0, card_bottom - image_bottom)
+    left_clip = left_gap < radius and bottom_gap < radius
+    right_clip = right_gap < radius and bottom_gap < radius
+    if not left_clip and not right_clip:
+        return ""
+
+    path = [f"M {_number(x)} {_number(y)}", f"H {_number(right)}"]
+    if right_clip:
+        right_side_y = _rounded_corner_side_intersection(card_bottom, radius, right_gap)
+        right_bottom_x = _rounded_corner_bottom_intersection(
+            card_right, radius, bottom_gap, side="right"
+        )
+        path.extend(
+            [
+                f"V {_number(right_side_y)}",
+                (
+                    f"A {_number(radius)} {_number(radius)} 0 0 1 "
+                    f"{_number(right_bottom_x)} {_number(image_bottom)}"
+                ),
+            ]
+        )
+    else:
+        path.append(f"V {_number(image_bottom)}")
+
+    if left_clip:
+        left_bottom_x = _rounded_corner_bottom_intersection(
+            card_x, radius, bottom_gap, side="left"
+        )
+        left_side_y = _rounded_corner_side_intersection(card_bottom, radius, left_gap)
+        path.extend(
+            [
+                f"H {_number(left_bottom_x)}",
+                (
+                    f"A {_number(radius)} {_number(radius)} 0 0 1 "
+                    f"{_number(x)} {_number(left_side_y)}"
+                ),
+            ]
+        )
+    else:
+        path.append(f"H {_number(x)}")
+
+    path.extend([f"V {_number(y)}", "Z"])
+    return f'<clipPath id="image-clip"><path d="{" ".join(path)}"/></clipPath>'
+
+
+def _rounded_corner_side_intersection(
+    card_bottom: float, radius: float, side_gap: float
+) -> float:
+    return card_bottom - radius + _rounded_corner_offset(radius, side_gap)
+
+
+def _rounded_corner_bottom_intersection(
+    card_side: float,
+    radius: float,
+    bottom_gap: float,
+    *,
+    side: Literal["left", "right"],
+) -> float:
+    offset = _rounded_corner_offset(radius, bottom_gap)
+    if side == "left":
+        return card_side + radius - offset
+    return card_side - radius + offset
+
+
+def _rounded_corner_offset(radius: float, gap: float) -> float:
+    return sqrt(max(0.0, (radius * radius) - ((radius - gap) ** 2)))
 
 
 def _number(value: float) -> str:
