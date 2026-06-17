@@ -4,7 +4,6 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
-import subprocess  # nosec B404 - tests assert --exec subprocess options without running commands.
 from unittest import mock
 
 from rich_card.options import BackgroundPreset
@@ -47,6 +46,7 @@ class RenderRuntimeTest(unittest.TestCase):
             watermark_uses_logo=watermark_uses_logo,
             background=BackgroundPreset.aurora,
             width=None,
+            height=None,
             padding=72,
             inner_padding_x=34,
             inner_padding_y=30,
@@ -69,25 +69,38 @@ class RenderRuntimeTest(unittest.TestCase):
         self.assertIn("hello", svg)
 
     def test_render_card_exec_forces_color_environment(self) -> None:
-        completed = subprocess.CompletedProcess(["show colors"], 0, "out", "")
-
         with mock.patch(
-            "rich_card.runtime.subprocess.run", return_value=completed
-        ) as run:
+            "rich_card.runtime._capture_command_output", return_value="out"
+        ) as capture:
             output = render_card(None, None, "show colors", self.settings())
 
         self.assertEqual(output, self.output)
-        args, kwargs = run.call_args
+        args, _kwargs = capture.call_args
         self.assertEqual(args[0], "show colors")
-        self.assertTrue(kwargs["shell"])
-        self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
-        self.assertEqual(kwargs["env"]["CLICOLOR_FORCE"], "1")
-        self.assertEqual(kwargs["env"]["FORCE_COLOR"], "1")
-        self.assertNotIn("NO_COLOR", kwargs["env"])
+        env = args[1]
+        self.assertEqual(env["CLICOLOR_FORCE"], "1")
+        self.assertEqual(env["FORCE_COLOR"], "1")
+        self.assertEqual(env["COLORTERM"], "truecolor")
+        self.assertEqual(env["BAT_PAGER"], "cat")
+        self.assertNotIn("NO_COLOR", env)
         svg = self.output.read_text(encoding="utf-8")
         self.assertIn("❯", svg)
         self.assertIn("show colors", svg)
         self.assertIn("out", svg)
+
+    def test_render_card_exec_captures_tty_color_output(self) -> None:
+        command = (
+            "python -c 'import sys; "
+            'print("\\033[31mtty\\033[0m" if sys.stdout.isatty() else "plain")'
+            "'"
+        )
+
+        render_card(None, None, command, self.settings())
+
+        svg = self.output.read_text(encoding="utf-8")
+        self.assertIn("tty", svg)
+        self.assertIn("#cc6666", svg)
+        self.assertNotIn(">plain<", svg)
 
     def test_render_card_writes_image_content(self) -> None:
         image = self.root / "sample.png"

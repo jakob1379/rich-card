@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import escape
 import unittest
 from typing import Any, cast
 
@@ -58,6 +59,26 @@ class RichCardSvgTest(unittest.TestCase):
         )
 
         self.assertIn('<text x="72" y="137"', svg)
+
+    def test_render_code_card_svg_fixed_height_clips_code_body(self) -> None:
+        svg = render_code_card_svg(
+            "first\nsecond\nthird\n",
+            CodeCardOptions(lexer="text", width=640, height=300),
+        )
+
+        self.assertIn('width="640" height="300"', svg)
+        self.assertIn('viewBox="0 0 640 300"', svg)
+        self.assertIn('<clipPath id="code-clip">', svg)
+        self.assertIn('<rect x="106" y="152" width="428" height="46"', svg)
+        self.assertIn('<g clip-path="url(#code-clip)">', svg)
+
+    def test_render_image_card_svg_fixed_height_scales_to_fit(self) -> None:
+        image = ImageContent("data:image/png;base64,image", 520, 200)
+
+        svg = render_image_card_svg(image, ImageCardOptions(width=664, height=300))
+
+        self.assertIn('width="664" height="300"', svg)
+        self.assertIn('height="46.0"', svg)
 
     def test_render_code_card_svg_background_off_uses_transparent_tight_canvas(
         self,
@@ -143,7 +164,7 @@ class RichCardSvgTest(unittest.TestCase):
 
         self.assertIn(">🚀</tspan>", svg)
         self.assertIn(">✅</tspan>", svg)
-        self.assertIn(f'font-family="{EMOJI_FONT_STACK}"', svg)
+        self.assertIn(f'font-family="{escape(EMOJI_FONT_STACK, quote=True)}"', svg)
         self.assertIn("Noto Color Emoji", svg)
         self.assertIn('fill="#ffd447"', svg)
         self.assertIn('fill="#34c759"', svg)
@@ -156,11 +177,12 @@ class RichCardSvgTest(unittest.TestCase):
             CodeCardOptions(),
         )
 
-        self.assertIn('<tspan fill="#800000">red</tspan>', svg)
+        self.assertIn('<tspan fill="#cc6666">red</tspan>', svg)
         self.assertIn('<tspan fill="#f0f2f5"> plain</tspan>', svg)
         self.assertIn('<tspan fill="#010203" font-weight="700">truecolor</tspan>', svg)
         self.assertIn(
-            "<tspan fill=\"#000080\" font-family=\"'Symbols Nerd Font Mono', 'Symbols Nerd Font'",
+            '<tspan fill="#81a2be" '
+            f'font-family="{escape(RendererDefaults().icon_font_stack, quote=True)}">',
             svg,
         )
         self.assertIn(">󰣞</tspan>", svg)
@@ -216,7 +238,7 @@ class RichCardSvgTest(unittest.TestCase):
 
         svg = render_image_card_svg(image, ImageCardOptions(title=file_name))
 
-        self.assertIn(f'font-family="{CHROME_FONT_STACK}"', svg)
+        self.assertIn(f'font-family="{escape(CHROME_FONT_STACK, quote=True)}"', svg)
         self.assertIn(file_name, svg)
         self.assertNotIn("Apple Color Emoji", svg)
 
@@ -248,6 +270,12 @@ class RichCardSvgTest(unittest.TestCase):
         ):
             render_code_card_svg("x = 1", CodeCardOptions(width=100, padding=60))
 
+        with self.assertRaisesRegex(
+            InvalidRendererOptionError,
+            "height must leave room for chrome and one content line",
+        ):
+            render_code_card_svg("x = 1", CodeCardOptions(height=200))
+
     def test_render_code_card_svg_rejects_invalid_renderer_defaults(self) -> None:
         with self.assertRaisesRegex(
             InvalidRendererOptionError, "renderer.char_width must be finite"
@@ -255,6 +283,31 @@ class RichCardSvgTest(unittest.TestCase):
             render_code_card_svg(
                 "x = 1",
                 CodeCardOptions(renderer=RendererDefaults(char_width=float("nan"))),
+            )
+
+        with self.assertRaisesRegex(
+            InvalidRendererOptionError,
+            "renderer.card_fill must be a #rrggbb hex color",
+        ):
+            render_code_card_svg(
+                "x = 1",
+                CodeCardOptions(
+                    renderer=RendererDefaults(card_fill='#111111" data-x="1')
+                ),
+            )
+
+        with self.assertRaisesRegex(
+            InvalidRendererOptionError,
+            r"renderer\.ansi_palette\[0\] must be a #rrggbb hex color",
+        ):
+            render_code_card_svg(
+                "x = 1",
+                CodeCardOptions(
+                    renderer=RendererDefaults(
+                        terminal_palette="config",
+                        ansi_palette=('#000000" data-x="1',) + ("#000000",) * 15,
+                    )
+                ),
             )
 
     def test_code_card_options_reject_invalid_code_options(self) -> None:

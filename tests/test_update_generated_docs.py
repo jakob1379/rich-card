@@ -145,6 +145,31 @@ class UpdateGeneratedDocsTest(unittest.TestCase):
 
         self.assertIs(raised.exception.__cause__, error)
 
+    def test_write_card_svg_uses_fixed_exec_sample(self) -> None:
+        from rich_card import cli
+
+        with tempfile.TemporaryDirectory() as tmp:
+            generated_card = Path(tmp) / "assets" / "card.svg"
+            self.docs.GENERATED_CARD = generated_card
+
+            with mock.patch.object(cli, "app") as app:
+                self.docs._write_card_svg()
+
+        app.assert_called_once_with(
+            args=[
+                "--width",
+                str(self.docs.GENERATED_CARD_WIDTH),
+                "--height",
+                str(self.docs.GENERATED_CARD_HEIGHT),
+                "--exec",
+                self.docs.GENERATED_CARD_COMMAND,
+                "--output",
+                str(generated_card),
+            ],
+            prog_name="rich-card",
+            standalone_mode=False,
+        )
+
     def test_main_generates_cli_docs_writes_svg_then_updates_readme(self) -> None:
         calls = []
 

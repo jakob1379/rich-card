@@ -15,6 +15,9 @@ README = ROOT / "README.md"
 SOURCE = ROOT / "src"
 GENERATED_CARD = ROOT / "docs" / "assets" / "card.svg"
 COMMAND_TIMEOUT_SECONDS = 30
+GENERATED_CARD_WIDTH = 1340
+GENERATED_CARD_HEIGHT = 947
+GENERATED_CARD_COMMAND = "bat pyproject.toml"
 BEGIN_CLI_REFERENCE = "<!-- BEGIN CLI REFERENCE -->"
 END_CLI_REFERENCE = "<!-- END CLI REFERENCE -->"
 
@@ -61,7 +64,16 @@ def _write_card_svg() -> None:
     os.environ["XDG_CONFIG_HOME"] = str(ROOT / ".generated-config")
     try:
         app(
-            args=[str(ROOT / "pyproject.toml"), "--output", str(GENERATED_CARD)],
+            args=[
+                "--width",
+                str(GENERATED_CARD_WIDTH),
+                "--height",
+                str(GENERATED_CARD_HEIGHT),
+                "--exec",
+                GENERATED_CARD_COMMAND,
+                "--output",
+                str(GENERATED_CARD),
+            ],
             prog_name="rich-card",
             standalone_mode=False,
         )

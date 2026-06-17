@@ -37,6 +37,11 @@ from .terminal_palette import (
 ANSI_ESCAPE_PATTERN = re.compile(
     r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[@-Z\\-_])"
 )
+NON_DISPLAY_ESCAPE_PATTERN = re.compile(
+    r"\x1b\](?:[^\x07\x1b]*(?:\x07|\x1b\\)|[^\x07\x1b]*)"
+    r"|\x1b\[(?![0-?]*m)[0-?]*[ -/]*[@-~]"
+    r"|\x1b[@-Z\\-_]"
+)
 ANSI_CONSOLE = Console(color_system="truecolor", force_terminal=True)
 
 
@@ -159,6 +164,7 @@ def _load_style(theme: str):
 
 
 def _ansi_lines(code: str, renderer: RendererDefaults) -> list[list[Fragment]]:
+    code = NON_DISPLAY_ESCAPE_PATTERN.sub("", code)
     palette = resolve_terminal_palette(renderer)
     lines: list[list[Fragment]] = []
     for text in AnsiDecoder().decode(code):

@@ -24,6 +24,7 @@
         pkgs.writeShellApplication {
           name = "update-rich-card-generated-docs";
           runtimeInputs = [
+            pkgs.bat
             pkgs.prettier
             pkgs.uv
           ];

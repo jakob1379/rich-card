@@ -32,12 +32,12 @@ Images can be framed in the same card style:
 rich-card --image screenshot.png --title "Build result" --inner-padding 24 -o screenshot-card.svg
 ```
 
-Cards auto-size to their content by default. Pass `--width` when you want a
-fixed canvas width. Use `--padding` for the outer gradient margin and
+Cards auto-size to their content by default. Pass `--width` and `--height` when
+you want a fixed canvas size. Use `--padding` for the outer gradient margin and
 `--inner-padding` for the padding inside the terminal card:
 
 ```bash
-rich-card --width 1080 --padding 80 --inner-padding 32 -o fixed-card.svg <<'EOF'
+rich-card --width 1080 --height 520 --padding 80 --inner-padding 32 -o fixed-card.svg <<'EOF'
 print("hi")
 EOF
 ```
@@ -56,6 +56,8 @@ configured defaults.
     "logo": "logo.svg",
     "watermark": true,
     "background": "aurora",
+    "width": 1340,
+    "height": 947,
     "padding": 72,
     "inner_padding": 30,
     "radius": 12,
@@ -130,6 +132,8 @@ $ rich-card [OPTIONS] [SOURCE]
   `rich-card --list-backgrounds`. [default: aurora]
 - `-w, --width INTEGER RANGE`: Fixed SVG canvas width in pixels.
   [520&lt;=x&lt;=2400]
+- `-H, --height INTEGER RANGE`: Fixed SVG canvas height in pixels.
+  [180&lt;=x&lt;=3200]
 - `-p, --padding INTEGER RANGE`: Background padding outside the terminal card in
   pixels. [default: 72; 24&lt;=x&lt;=240]
 - `--inner-padding INTEGER RANGE`: Padding inside the terminal card around the

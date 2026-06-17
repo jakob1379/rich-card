@@ -67,6 +67,7 @@ class CommonCardOptions:
     title: str | None = None
     background: BackgroundChoice = BackgroundPreset.aurora
     width: int | None = None
+    height: int | None = None
     padding: int = 72
     inner_padding_x: int = INNER_PADDING_X
     inner_padding_y: int = INNER_PADDING_Y
@@ -135,13 +136,16 @@ def render_code_card_svg(code: str, options: CodeCardOptions) -> str:
     padding = _effective_padding(options)
     card_width = width - (padding * 2)
     code_height = max(1, len(lines)) * renderer.line_height
-    card_height = (
+    card_height = _card_height(
+        options,
         renderer.title_bar_height
         + options.inner_padding_y
         + code_height
-        + options.inner_padding_y
+        + options.inner_padding_y,
     )
-    height = card_height + (padding * 2)
+    height = (
+        options.height if options.height is not None else card_height + (padding * 2)
+    )
     card_x = padding
     card_y = padding
     code_x = card_x + options.inner_padding_x
@@ -163,7 +167,27 @@ def render_code_card_svg(code: str, options: CodeCardOptions) -> str:
         renderer,
         "Rendered code card",
     )
-    parts.append(_code_lines(lines, code_x, code_y, renderer))
+    code_markup = _code_lines(lines, code_x, code_y, renderer)
+    if options.height is not None:
+        code_clip = _code_clip_path(
+            code_x,
+            card_y + renderer.title_bar_height + options.inner_padding_y,
+            max(1, card_width - (options.inner_padding_x * 2)),
+            max(
+                1,
+                card_height - renderer.title_bar_height - (options.inner_padding_y * 2),
+            ),
+        )
+        parts.extend(
+            [
+                code_clip,
+                '<g clip-path="url(#code-clip)">',
+                code_markup,
+                "</g>",
+            ]
+        )
+    else:
+        parts.append(code_markup)
     parts.append("</svg>")
     return "\n".join(parts)
 
@@ -180,20 +204,41 @@ def render_image_card_svg(content: ImageContent, options: ImageCardOptions) -> s
     padding = _effective_padding(options)
     card_width = width - (padding * 2)
     image_area_width = max(1, card_width - (options.inner_padding_x * 2))
-    scale = min(1.0, image_area_width / content.width)
+    fixed_image_area_height = _fixed_content_area_height(options)
+    scale = min(
+        1.0,
+        image_area_width / content.width,
+        *(
+            ()
+            if fixed_image_area_height is None
+            else (fixed_image_area_height / content.height,)
+        ),
+    )
     image_width = content.width * scale
     image_height = content.height * scale
-    card_height = (
+    card_height = _card_height(
+        options,
         renderer.title_bar_height
         + options.inner_padding_y
         + image_height
-        + options.inner_padding_y
+        + options.inner_padding_y,
     )
-    height = card_height + (padding * 2)
+    height = (
+        options.height if options.height is not None else card_height + (padding * 2)
+    )
+    image_area_height = max(
+        1,
+        card_height - renderer.title_bar_height - (options.inner_padding_y * 2),
+    )
     card_x = padding
     card_y = padding
     image_x = card_x + options.inner_padding_x + ((image_area_width - image_width) / 2)
-    image_y = card_y + renderer.title_bar_height + options.inner_padding_y
+    image_y = (
+        card_y
+        + renderer.title_bar_height
+        + options.inner_padding_y
+        + ((image_area_height - image_height) / 2)
+    )
 
     parts = _card_frame_parts(
         width,
@@ -245,6 +290,7 @@ def _validate_common_options(options: CommonCardOptions) -> None:
     ):
         raise InvalidRendererOptionError("watermark must be an ImageContent or None.")
     _validate_optional_int("width", options.width, minimum=1)
+    _validate_optional_int("height", options.height, minimum=1)
     _validate_int("padding", options.padding, minimum=0)
     _validate_int("inner_padding_x", options.inner_padding_x, minimum=0)
     _validate_int("inner_padding_y", options.inner_padding_y, minimum=0)
@@ -254,6 +300,17 @@ def _validate_common_options(options: CommonCardOptions) -> None:
         raise InvalidRendererOptionError(
             "width must be greater than twice the padding."
         )
+    if options.height is not None:
+        minimum_height = (
+            (padding * 2)
+            + options.renderer.title_bar_height
+            + (options.inner_padding_y * 2)
+            + options.renderer.line_height
+        )
+        if options.height < minimum_height:
+            raise InvalidRendererOptionError(
+                "height must leave room for chrome and one content line."
+            )
     if isinstance(options, CodeCardOptions):
         _validate_bool("line_numbers", options.line_numbers)
         _validate_bool("word_wrap", options.word_wrap)
@@ -261,6 +318,17 @@ def _validate_common_options(options: CommonCardOptions) -> None:
 
 
 def _validate_renderer_defaults(renderer: RendererDefaults) -> None:
+    for field_name in ("card_fill", "card_stroke", "muted_text", "default_text"):
+        _validate_hex_color(
+            f"renderer.{field_name}",
+            getattr(renderer, field_name),
+        )
+    if not isinstance(renderer.ansi_palette, tuple) or len(renderer.ansi_palette) != 16:
+        raise InvalidRendererOptionError(
+            "renderer.ansi_palette must be a tuple of 16 hex colors."
+        )
+    for index, color in enumerate(renderer.ansi_palette):
+        _validate_hex_color(f"renderer.ansi_palette[{index}]", color)
     for field_name in (
         "char_width",
         "line_height",
@@ -319,6 +387,21 @@ def _validate_string(name: str, value: object) -> None:
 def _validate_optional_string(name: str, value: object) -> None:
     if value is not None and not isinstance(value, str):
         raise InvalidRendererOptionError(f"{name} must be a string or None.")
+
+
+def _validate_hex_color(name: str, value: object) -> None:
+    if not isinstance(value, str):
+        raise InvalidRendererOptionError(f"{name} must be a string.")
+    if not _is_hex_color(value):
+        raise InvalidRendererOptionError(f"{name} must be a #rrggbb hex color.")
+
+
+def _is_hex_color(value: str) -> bool:
+    return (
+        len(value) == 7
+        and value.startswith("#")
+        and all(character in "0123456789abcdefABCDEF" for character in value[1:])
+    )
 
 
 def _validate_number(
@@ -520,6 +603,36 @@ def _number(value: float) -> str:
     return str(int(value)) if float(value).is_integer() else f"{value:.1f}"
 
 
+def _svg_attr(value: str) -> str:
+    return html.escape(value, quote=True)
+
+
+def _card_height(options: CommonCardOptions, natural_card_height: float) -> float:
+    if options.height is None:
+        return natural_card_height
+    return options.height - (_effective_padding(options) * 2)
+
+
+def _fixed_content_area_height(options: CommonCardOptions) -> float | None:
+    if options.height is None:
+        return None
+    return max(
+        1,
+        _card_height(options, 0)
+        - options.renderer.title_bar_height
+        - (options.inner_padding_y * 2),
+    )
+
+
+def _code_clip_path(x: float, y: float, width: float, height: float) -> str:
+    return (
+        '<clipPath id="code-clip">'
+        f'<rect x="{_number(x)}" y="{_number(y)}" '
+        f'width="{_number(width)}" height="{_number(height)}"/>'
+        "</clipPath>"
+    )
+
+
 def _auto_code_canvas_width(
     lines: list[list[Fragment]], options: CodeCardOptions
 ) -> int:
@@ -610,7 +723,7 @@ def _title_bar(
         )
         label = (
             f'<text x="{x + width / 2:.1f}" y="{y + 31}" '
-            f'font-family="{renderer.chrome_font_stack}" font-size="13" '
+            f'font-family="{_svg_attr(renderer.chrome_font_stack)}" font-size="13" '
             'text-anchor="middle" clip-path="url(#title-clip)">'
             f"{_inline_tspans(title, renderer.muted_text, renderer)}"
             "</text>"

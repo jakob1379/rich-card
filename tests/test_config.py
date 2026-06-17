@@ -47,6 +47,20 @@ class LoadConfigTest(unittest.TestCase):
             "renderer.card_fill must be a string",
         )
 
+    def test_rejects_renderer_color_attribute_injection(self) -> None:
+        self.assert_config_error(
+            {"renderer": {"card_fill": '#111111" data-x="1'}},
+            r"renderer\.card_fill must be a #rrggbb hex color",
+        )
+
+    def test_renderer_color_config_is_normalized_to_lowercase(self) -> None:
+        path = self.write_config({"renderer": {"card_fill": "#ABCDEF"}})
+
+        config = load_config(path)
+        defaults = renderer_defaults(config.renderer)
+
+        self.assertEqual(defaults.card_fill, "#abcdef")
+
     def test_rejects_invalid_terminal_palette_mode(self) -> None:
         self.assert_config_error(
             {"renderer": {"terminal_palette": "magic"}},

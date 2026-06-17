@@ -202,6 +202,7 @@ def _resolve_settings(
     watermark: str | None,
     background: str,
     width: int | None,
+    height: int | None,
     padding: int,
     inner_padding: int | None,
     radius: int,
@@ -238,6 +239,7 @@ def _resolve_settings(
         watermark_uses_logo=watermark_uses_logo,
         background=_background_value(ctx, background, card_config.background),
         width=_configured_value(ctx, "width", width, card_config.width),
+        height=_configured_value(ctx, "height", height, card_config.height),
         padding=_configured_value(ctx, "padding", padding, card_config.padding),
         inner_padding_x=inner_padding_x,
         inner_padding_y=inner_padding_y,
@@ -338,6 +340,16 @@ WidthOption = Annotated[
         "--width", "-w", min=520, max=2400, help="Fixed SVG canvas width in pixels."
     ),
 ]
+HeightOption = Annotated[
+    int | None,
+    typer.Option(
+        "--height",
+        "-H",
+        min=180,
+        max=3200,
+        help="Fixed SVG canvas height in pixels.",
+    ),
+]
 PaddingOption = Annotated[
     int,
     typer.Option(
@@ -401,6 +413,7 @@ def render(
     watermark: WatermarkOption = None,
     background: BackgroundOption = BackgroundPreset.aurora.value,
     width: WidthOption = None,
+    height: HeightOption = None,
     padding: PaddingOption = 72,
     inner_padding: InnerPaddingOption = None,
     radius: RadiusOption = DEFAULT_CARD_RADIUS,
@@ -432,6 +445,7 @@ def render(
             watermark,
             background,
             width,
+            height,
             padding,
             inner_padding,
             radius,

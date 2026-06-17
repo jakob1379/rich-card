@@ -17,7 +17,8 @@ def _code_lines(
         line_y = y + (index * renderer.line_height)
         spans, overlays = _line_markup(line, x, line_y, renderer)
         output.append(
-            f'<text x="{x}" y="{line_y}" font-family="{renderer.code_font_stack}" '
+            f'<text x="{x}" y="{line_y}" '
+            f'font-family="{_svg_attr(renderer.code_font_stack)}" '
             f'font-size="{renderer.font_size}" xml:space="preserve">'
             f"{''.join(spans)}</text>"
         )
@@ -90,7 +91,7 @@ def _inline_tspans(text: str, color: str, renderer: RendererDefaults) -> str:
 def _tspan(text: str, fragment: Fragment, mode: str, renderer: RendererDefaults) -> str:
     if mode == "emoji":
         attrs = [
-            f'font-family="{renderer.emoji_font_stack}"',
+            f'font-family="{_svg_attr(renderer.emoji_font_stack)}"',
             'style="font-variant-emoji: emoji;"',
         ]
         if _has_color_overlay(text):
@@ -98,7 +99,7 @@ def _tspan(text: str, fragment: Fragment, mode: str, renderer: RendererDefaults)
     elif mode == "icon":
         attrs = [
             f'fill="{fragment.color}"',
-            f'font-family="{renderer.icon_font_stack}"',
+            f'font-family="{_svg_attr(renderer.icon_font_stack)}"',
         ]
     else:
         attrs = [f'fill="{fragment.color}"']
@@ -114,6 +115,10 @@ def _escape_xml_text(text: str) -> str:
         character for character in text if _is_valid_xml_character(character)
     )
     return escape(valid_text)
+
+
+def _svg_attr(value: str) -> str:
+    return escape(value, quote=True)
 
 
 def _is_valid_xml_character(character: str) -> bool:

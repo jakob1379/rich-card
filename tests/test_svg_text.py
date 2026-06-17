@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import escape
 import unittest
 
 from rich_card.errors import UnknownLexerError
@@ -42,12 +43,25 @@ class RichCardSvgTextTest(unittest.TestCase):
             '<tspan fill="#f92672" font-weight="700">if x &lt; 3</tspan>', svg
         )
 
+    def test_code_lines_escapes_font_family_attribute_values(self) -> None:
+        svg = _code_lines(
+            [[Fragment("x", "#f92672")]],
+            10,
+            20,
+            RendererDefaults(code_font_stack='Mono" data-x="1'),
+        )
+
+        self.assertNotIn('data-x="1"', svg)
+        self.assertIn('font-family="Mono&quot; data-x=&quot;1"', svg)
+
     def test_inline_tspans_uses_emoji_font_fallback(self) -> None:
         renderer = RendererDefaults()
         markup = _inline_tspans("Ship 🚀", "#ffffff", renderer)
 
         self.assertIn('<tspan fill="#ffffff">Ship </tspan>', markup)
-        self.assertIn(f'font-family="{renderer.emoji_font_stack}"', markup)
+        self.assertIn(
+            f'font-family="{escape(renderer.emoji_font_stack, quote=True)}"', markup
+        )
         self.assertIn('style="font-variant-emoji: emoji;"', markup)
 
     def test_highlight_lines_uses_configured_lexer(self) -> None:
@@ -60,7 +74,7 @@ class RichCardSvgTextTest(unittest.TestCase):
     def test_highlight_lines_decodes_ansi_without_lexer(self) -> None:
         lines = self.highlight("\x1b[31mred\x1b[0m", CodeCardOptions())
 
-        self.assertEqual([Fragment("red", "#800000")], lines[0])
+        self.assertEqual([Fragment("red", "#cc6666")], lines[0])
 
     def test_highlight_lines_maps_standard_ansi_through_configured_palette(
         self,
@@ -85,6 +99,14 @@ class RichCardSvgTextTest(unittest.TestCase):
         )
 
         self.assertEqual([Fragment("truecolor", "#010203")], lines[0])
+
+    def test_highlight_lines_strips_non_display_terminal_controls(self) -> None:
+        lines = self.highlight(
+            "\x1b]10;?\x07\x1b]11;?\x07\x1b[c\x1b[31mred\x1b[0m",
+            CodeCardOptions(),
+        )
+
+        self.assertEqual([Fragment("red", "#cc6666")], lines[0])
 
     def test_highlight_lines_normalizes_terminal_crlf(self) -> None:
         lines = self.highlight("Ruff\r\n\x1b[32mUsage:\x1b[0m\r\n", CodeCardOptions())

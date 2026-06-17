@@ -2,11 +2,17 @@ from __future__ import annotations
 
 from contextlib import suppress
 from dataclasses import dataclass
+import fcntl
 import os
 from pathlib import Path
+import pty
+import select
+import shutil
 import subprocess  # nosec B404 - used for explicit user-requested --exec commands.
+import struct
 import sys
 import tempfile
+import termios
 
 from .errors import RendererError, UnsupportedImageError
 from .images import ImageContent, load_image_content
@@ -31,6 +37,7 @@ class RenderSettings:
     watermark_uses_logo: bool
     background: BackgroundChoice
     width: int | None
+    height: int | None
     padding: int
     inner_padding_x: int
     inner_padding_y: int
@@ -95,8 +102,30 @@ def _read_command(command: str) -> str:
             "CLICOLOR_FORCE": "1",
             "FORCE_COLOR": "1",
             "COLORTERM": env.get("COLORTERM", "truecolor"),
+            "GIT_PAGER": "cat",
+            "PAGER": "cat",
+            "BAT_PAGER": "cat",
+            "TERM": _color_term(env),
         }
     )
+    output = _capture_command_output(command, env)
+    return _command_transcript(command, output)
+
+
+def _color_term(env: dict[str, str]) -> str:
+    term = env.get("TERM")
+    if not term or term == "dumb":
+        return "xterm-256color"
+    return term
+
+
+def _capture_command_output(command: str, env: dict[str, str]) -> str:
+    if os.name == "posix":
+        return _capture_command_output_pty(command, env)
+    return _capture_command_output_pipe(command, env)
+
+
+def _capture_command_output_pipe(command: str, env: dict[str, str]) -> str:
     result = subprocess.run(  # nosec B602 - --exec intentionally runs user shell input.
         command,
         shell=True,
@@ -109,7 +138,73 @@ def _read_command(command: str) -> str:
         errors="replace",
         check=False,
     )
-    return _command_transcript(command, result.stdout)
+    return result.stdout
+
+
+def _capture_command_output_pty(command: str, env: dict[str, str]) -> str:
+    master_fd, slave_fd = pty.openpty()
+    try:
+        _set_pty_size(slave_fd, env)
+        process = subprocess.Popen(  # nosec B602 - --exec intentionally runs user shell input.
+            command,
+            shell=True,
+            executable=env.get("SHELL") or None,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+        )
+        os.close(slave_fd)
+        slave_fd = -1
+        output = _read_pty_output(master_fd, process)
+    finally:
+        with suppress(OSError):
+            os.close(master_fd)
+        if slave_fd >= 0:
+            with suppress(OSError):
+                os.close(slave_fd)
+    return output.decode("utf-8", errors="replace")
+
+
+def _set_pty_size(slave_fd: int, env: dict[str, str]) -> None:
+    terminal_size = shutil.get_terminal_size((120, 30))
+    rows = max(1, terminal_size.lines)
+    columns = max(20, terminal_size.columns)
+    env["LINES"] = str(rows)
+    env["COLUMNS"] = str(columns)
+    packed_size = struct.pack("HHHH", rows, columns, 0, 0)
+    with suppress(OSError):
+        fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, packed_size)
+
+
+def _read_pty_output(master_fd: int, process: subprocess.Popen[bytes]) -> bytes:
+    chunks: list[bytes] = []
+    while process.poll() is None:
+        _read_available_pty_output(master_fd, chunks, timeout=0.05)
+    _read_available_pty_output(master_fd, chunks, timeout=0)
+    process.wait()
+    return b"".join(chunks)
+
+
+def _read_available_pty_output(
+    master_fd: int, chunks: list[bytes], *, timeout: float
+) -> None:
+    while True:
+        try:
+            readable, _, _ = select.select([master_fd], [], [], timeout)
+        except OSError:
+            return
+        if not readable:
+            return
+        try:
+            chunk = os.read(master_fd, 4096)
+        except OSError:
+            return
+        if not chunk:
+            return
+        chunks.append(chunk)
+        timeout = 0
 
 
 def _command_transcript(command: str, output: str) -> str:
@@ -151,6 +246,7 @@ def _render_image_card(image: Path, settings: RenderSettings) -> str:
             title=settings.title if settings.title is not None else image.name,
             background=settings.background,
             width=settings.width,
+            height=settings.height,
             padding=settings.padding,
             inner_padding_x=settings.inner_padding_x,
             inner_padding_y=settings.inner_padding_y,
@@ -191,6 +287,7 @@ def _render_code_card(
             tab_size=settings.tab_size,
             background=settings.background,
             width=settings.width,
+            height=settings.height,
             padding=settings.padding,
             inner_padding_x=settings.inner_padding_x,
             inner_padding_y=settings.inner_padding_y,

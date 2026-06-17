@@ -31,6 +31,7 @@ class CardConfig:
     watermark: str | bool | None = None
     background: BackgroundChoice | None = None
     width: int | None = None
+    height: int | None = None
     padding: int | None = None
     inner_padding: int | None = None
     inner_padding_x: int | None = None
@@ -164,6 +165,9 @@ def _card_config(path: Path, raw: Any) -> CardConfig:
         width=_optional_int(
             path, "card.width", raw.get("width"), minimum=520, maximum=2400
         ),
+        height=_optional_int(
+            path, "card.height", raw.get("height"), minimum=180, maximum=3200
+        ),
         padding=_optional_int(
             path, "card.padding", raw.get("padding"), minimum=24, maximum=240
         ),
@@ -201,10 +205,14 @@ def _renderer_config(path: Path, raw: Any) -> RendererConfig:
 
     _reject_unknown_keys(path, "renderer", raw, RENDERER_KEYS)
     return RendererConfig(
-        card_fill=_optional_str(path, "renderer.card_fill", raw.get("card_fill")),
-        card_stroke=_optional_str(path, "renderer.card_stroke", raw.get("card_stroke")),
-        muted_text=_optional_str(path, "renderer.muted_text", raw.get("muted_text")),
-        default_text=_optional_str(
+        card_fill=_optional_hex_color(path, "renderer.card_fill", raw.get("card_fill")),
+        card_stroke=_optional_hex_color(
+            path, "renderer.card_stroke", raw.get("card_stroke")
+        ),
+        muted_text=_optional_hex_color(
+            path, "renderer.muted_text", raw.get("muted_text")
+        ),
+        default_text=_optional_hex_color(
             path, "renderer.default_text", raw.get("default_text")
         ),
         terminal_palette=_optional_choice(
@@ -309,6 +317,15 @@ def _optional_str(path: Path, name: str, value: Any) -> str | None:
     if not value:
         raise ConfigError(f"{path}: {name} must be a non-empty string.")
     return value
+
+
+def _optional_hex_color(path: Path, name: str, value: Any) -> str | None:
+    parsed = _optional_str(path, name, value)
+    if parsed is None:
+        return None
+    if not _is_hex_color(parsed):
+        raise ConfigError(f"{path}: {name} must be a #rrggbb hex color.")
+    return parsed.lower()
 
 
 def _optional_watermark(path: Path, name: str, value: Any) -> str | bool | None:
