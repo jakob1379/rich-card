@@ -7,9 +7,9 @@ from rich_card.options import (
     BACKGROUND_CHOICES,
     BACKGROUND_OFF,
     BACKGROUND_PRESETS,
-    BackgroundPreset,
     DEFAULT_BACKGROUND,
     DEFAULT_CARD_RADIUS,
+    BackgroundPreset,
     require_background,
     require_background_choice,
 )

@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from contextlib import suppress
-from dataclasses import dataclass
 import fcntl
 import os
-from pathlib import Path
 import pty
 import select
 import shutil
-import subprocess  # nosec B404 - used for explicit user-requested --exec commands.
 import struct
+import subprocess  # nosec B404 - used for explicit user-requested --exec commands.
 import sys
 import tempfile
 import termios
+from contextlib import suppress
+from dataclasses import dataclass
+from pathlib import Path
 
 from .errors import RendererError, UnsupportedImageError
 from .images import ImageContent, load_image_content

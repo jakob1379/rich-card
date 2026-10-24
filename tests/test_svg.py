@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from html import escape
 import unittest
+from html import escape
 from typing import Any, cast
 
 from rich_card.errors import (
@@ -14,8 +14,8 @@ from rich_card.options import BACKGROUND_OFF
 from rich_card.renderer_options import RendererDefaults
 from rich_card.svg import (
     CHROME_FONT_STACK,
-    CodeCardOptions,
     EMOJI_FONT_STACK,
+    CodeCardOptions,
     ImageCardOptions,
     render_code_card_svg,
     render_image_card_svg,
@@ -323,9 +323,11 @@ class RichCardSvgTest(unittest.TestCase):
             ({"word_wrap": 1}, "word_wrap must be a boolean"),
         )
         for kwargs, expected in cases:
-            with self.subTest(kwargs=kwargs):
-                with self.assertRaisesRegex(InvalidRendererOptionError, expected):
-                    CodeCardOptions(**cast(Any, kwargs))
+            with (
+                self.subTest(kwargs=kwargs),
+                self.assertRaisesRegex(InvalidRendererOptionError, expected),
+            ):
+                CodeCardOptions(**cast(Any, kwargs))
 
     def test_card_options_reject_invalid_renderer_object(self) -> None:
         with self.assertRaisesRegex(

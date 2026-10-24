@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 DEFAULT_THEME = "monokai-extended"
 BUILTIN_ANSI_PALETTE = (
     "#1d1f21",

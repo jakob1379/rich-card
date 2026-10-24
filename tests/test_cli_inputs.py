@@ -4,7 +4,6 @@ from pathlib import Path
 from unittest import mock
 
 from rich_card.cli import app
-
 from tests.cli_helpers import RichCardsCliTestCase
 
 

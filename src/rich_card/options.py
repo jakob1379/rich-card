@@ -7,7 +7,6 @@ from typing import Literal
 
 from .errors import InvalidRendererOptionError
 
-
 BackgroundStops = tuple[str, str, str]
 
 

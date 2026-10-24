@@ -147,12 +147,14 @@ class LoadConfigTest(unittest.TestCase):
         self.assertEqual(config.path, missing)
 
     def test_read_failure_reports_path(self) -> None:
-        with mock.patch.object(Path, "read_text", side_effect=OSError("blocked")):
-            with self.assertRaisesRegex(
+        with (
+            mock.patch.object(Path, "read_text", side_effect=OSError("blocked")),
+            self.assertRaisesRegex(
                 ConfigError,
                 rf"{re.escape(str(self.path))}: could not read config: blocked",
-            ):
-                load_config(self.path)
+            ),
+        ):
+            load_config(self.path)
 
 
 if __name__ == "__main__":

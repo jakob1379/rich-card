@@ -10,7 +10,6 @@ from rich_card.options import BackgroundPreset
 from rich_card.renderer_options import DEFAULT_THEME, RendererDefaults
 from rich_card.runtime import RenderRuntimeError, RenderSettings, render_card
 
-
 PNG_IMAGE = (
     b"\x89PNG\r\n\x1a\n"
     b"\x00\x00\x00\rIHDR"
@@ -164,9 +163,11 @@ class RenderRuntimeTest(unittest.TestCase):
     def test_render_card_rejects_missing_source_content_and_stdin(self) -> None:
         stdin = mock.Mock()
         stdin.isatty.return_value = True
-        with mock.patch("rich_card.runtime.sys.stdin", stdin):
-            with self.assertRaisesRegex(RenderRuntimeError, "Provide a SOURCE path"):
-                render_card(None, None, None, self.settings())
+        with (
+            mock.patch("rich_card.runtime.sys.stdin", stdin),
+            self.assertRaisesRegex(RenderRuntimeError, "Provide a SOURCE path"),
+        ):
+            render_card(None, None, None, self.settings())
 
     def test_render_card_reports_output_write_failure(self) -> None:
         blocked_parent = self.root / "blocked"
