@@ -1,11 +1,11 @@
+import sys
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
-import sys
 from typing import Annotated
 
-from pygments.styles import get_all_styles
 import typer
+from pygments.styles import get_all_styles
 from typer.core import TyperCommand
 
 from .config import (
@@ -17,9 +17,9 @@ from .config import (
 from .errors import RendererError
 from .options import (
     BACKGROUND_CHOICES,
+    DEFAULT_CARD_RADIUS,
     BackgroundChoice,
     BackgroundPreset,
-    DEFAULT_CARD_RADIUS,
     require_background_choice,
 )
 from .renderer_options import DEFAULT_THEME

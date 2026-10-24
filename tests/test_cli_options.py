@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from rich_card.cli import app
 from rich_card.options import BACKGROUND_CHOICES, BACKGROUND_PRESETS, BackgroundPreset
-
 from tests.cli_helpers import RichCardsCliTestCase
 
 

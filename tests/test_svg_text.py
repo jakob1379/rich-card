@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from html import escape
 import unittest
+from html import escape
 
 from rich_card.errors import UnknownLexerError
 from rich_card.renderer_options import RendererDefaults

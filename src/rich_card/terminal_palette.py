@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import os
 import re
 import select
 import termios
 import time
 import tty
+from dataclasses import dataclass, replace
 
 from .renderer_options import BUILTIN_ANSI_PALETTE, RendererDefaults
 
@@ -136,11 +136,7 @@ def _read_palette_response(fd: int, timeout: float) -> bytes:
 
 
 def _rgb_response_to_hex(red: bytes, green: bytes, blue: bytes) -> str:
-    return "#{:02x}{:02x}{:02x}".format(
-        _channel_to_byte(red),
-        _channel_to_byte(green),
-        _channel_to_byte(blue),
-    )
+    return f"#{_channel_to_byte(red):02x}{_channel_to_byte(green):02x}{_channel_to_byte(blue):02x}"
 
 
 def _channel_to_byte(channel: bytes) -> int:

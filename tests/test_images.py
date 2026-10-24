@@ -6,7 +6,6 @@ import unittest
 from rich_card.errors import UnsupportedImageError
 from rich_card.images import ImageContent, image_metadata, load_image_content
 
-
 PNG_IMAGE = (
     b"\x89PNG\r\n\x1a\n"
     b"\x00\x00\x00\rIHDR"
@@ -81,11 +80,13 @@ class ImageContentTest(unittest.TestCase):
 
     def test_image_content_rejects_non_finite_dimensions(self) -> None:
         for width, height in ((float("nan"), 1), (1, float("inf"))):
-            with self.subTest(width=width, height=height):
-                with self.assertRaisesRegex(
+            with (
+                self.subTest(width=width, height=height),
+                self.assertRaisesRegex(
                     UnsupportedImageError, "Image dimensions must be finite"
-                ):
-                    ImageContent("data:image/png;base64,x", width, height)
+                ),
+            ):
+                ImageContent("data:image/png;base64,x", width, height)
 
     def test_svg_metadata_rejects_non_finite_viewbox_dimensions(self) -> None:
         svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 inf 2"></svg>'

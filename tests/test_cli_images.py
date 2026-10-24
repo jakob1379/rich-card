@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from rich_card.cli import app
-
 from tests.cli_helpers import JPEG_IMAGE, PNG_IMAGE, SVG_IMAGE, RichCardsCliTestCase
 
 

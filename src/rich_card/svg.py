@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import html
+from dataclasses import dataclass, field
 from math import ceil, isfinite, sqrt
 from typing import Literal
 
@@ -15,8 +15,8 @@ from .images import ImageContent
 from .options import (
     BACKGROUND_OFF,
     BACKGROUND_PRESETS,
-    BackgroundChoice,
     DEFAULT_CARD_RADIUS,
+    BackgroundChoice,
     BackgroundPreset,
 )
 from .renderer_options import DEFAULT_RENDERER, DEFAULT_THEME, RendererDefaults
@@ -25,7 +25,6 @@ from .svg_fragments import (
     _line_cell_width,
     _prepare_lines,
     _unwrapped_columns,
-    _wrap_fragments as _wrap_fragments,
 )
 from .svg_markup import _code_lines, _inline_tspans
 from .svg_syntax import _highlight_lines, _terminal_renderer
@@ -50,12 +49,12 @@ TITLE_BAR_TEXT_PADDING_X = DEFAULT_RENDERER.title_bar_text_padding_x
 MIN_CARD_WIDTH = DEFAULT_RENDERER.min_card_width
 
 __all__ = [
+    "INNER_PADDING_X",
+    "INNER_PADDING_Y",
     "CodeCardOptions",
     "CommonCardOptions",
     "Fragment",
     "ImageCardOptions",
-    "INNER_PADDING_X",
-    "INNER_PADDING_Y",
     "RendererDefaults",
     "render_code_card_svg",
     "render_image_card_svg",
@@ -405,7 +404,7 @@ def _is_hex_color(value: str) -> bool:
 
 
 def _validate_number(
-    name: str, value: float | int, *, minimum: float, maximum: float | None = None
+    name: str, value: float, *, minimum: float, maximum: float | None = None
 ) -> None:
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise InvalidRendererOptionError(f"{name} must be a number.")
@@ -453,9 +452,11 @@ def _card_frame_parts(
         filter_attr = ' filter="url(#soft-shadow)"'
     parts.extend(
         [
-            f'<rect x="{card_x}" y="{card_y}" width="{_number(card_width)}" height="{_number(card_height)}" '
-            f'rx="{options.radius}" fill="{renderer.card_fill}" '
-            f'stroke="{renderer.card_stroke}" stroke-width="3"{filter_attr}/>',
+            (
+                f'<rect x="{card_x}" y="{card_y}" width="{_number(card_width)}" height="{_number(card_height)}" '
+                f'rx="{options.radius}" fill="{renderer.card_fill}" '
+                f'stroke="{renderer.card_stroke}" stroke-width="3"{filter_attr}/>'
+            ),
             _watermark_logo(
                 options,
                 card_x,

@@ -9,7 +9,6 @@ from unittest import mock
 
 import click
 
-
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "update_generated_docs.py"
 
 
@@ -40,18 +39,19 @@ class UpdateGeneratedDocsTest(unittest.TestCase):
             env={"ENV": "value"},
             text=True,
             check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=self.docs.COMMAND_TIMEOUT_SECONDS,
         )
 
     def test_run_exits_on_timeout(self) -> None:
         timeout = subprocess.TimeoutExpired(["cmd"], 30, output="out", stderr="err")
 
-        with mock.patch.object(self.docs.subprocess, "run", side_effect=timeout):
-            with mock.patch.object(self.docs.sys.stderr, "write") as write:
-                with self.assertRaisesRegex(SystemExit, "Command timed out"):
-                    self.docs._run(["cmd"], {})
+        with (
+            mock.patch.object(self.docs.subprocess, "run", side_effect=timeout),
+            mock.patch.object(self.docs.sys.stderr, "write") as write,
+            self.assertRaisesRegex(SystemExit, "Command timed out"),
+        ):
+            self.docs._run(["cmd"], {})
 
         write.assert_has_calls([mock.call("out"), mock.call("err")])
 
@@ -111,14 +111,16 @@ class UpdateGeneratedDocsTest(unittest.TestCase):
             readme.write_text("old", encoding="utf-8")
             replace_error = PermissionError("blocked")
 
-            with mock.patch.object(self.docs.os, "replace", side_effect=replace_error):
-                with mock.patch.object(
+            with (
+                mock.patch.object(self.docs.os, "replace", side_effect=replace_error),
+                mock.patch.object(
                     Path, "unlink", side_effect=OSError("cleanup failed")
-                ):
-                    with self.assertRaisesRegex(
-                        SystemExit, rf"Failed to atomically replace {readme}: blocked"
-                    ) as raised:
-                        self.docs._replace_text(readme, "new")
+                ),
+                self.assertRaisesRegex(
+                    SystemExit, rf"Failed to atomically replace {readme}: blocked"
+                ) as raised,
+            ):
+                self.docs._replace_text(readme, "new")
 
             self.assertIs(raised.exception.__cause__, replace_error)
 
@@ -137,11 +139,13 @@ class UpdateGeneratedDocsTest(unittest.TestCase):
         from rich_card import cli
 
         error = click.ClickException("bad sample")
-        with mock.patch.object(cli, "app", side_effect=error):
-            with self.assertRaisesRegex(
+        with (
+            mock.patch.object(cli, "app", side_effect=error),
+            self.assertRaisesRegex(
                 SystemExit, "Failed to generate sample SVG: bad sample"
-            ) as raised:
-                self.docs._write_card_svg()
+            ) as raised,
+        ):
+            self.docs._write_card_svg()
 
         self.assertIs(raised.exception.__cause__, error)
 
@@ -183,14 +187,12 @@ class UpdateGeneratedDocsTest(unittest.TestCase):
         def update_readme(cli_docs):
             calls.append(("update_readme", cli_docs))
 
-        with mock.patch.object(self.docs, "_run", side_effect=run):
-            with mock.patch.object(
-                self.docs, "_write_card_svg", side_effect=write_card_svg
-            ):
-                with mock.patch.object(
-                    self.docs, "_update_readme", side_effect=update_readme
-                ):
-                    self.docs.main()
+        with (
+            mock.patch.object(self.docs, "_run", side_effect=run),
+            mock.patch.object(self.docs, "_write_card_svg", side_effect=write_card_svg),
+            mock.patch.object(self.docs, "_update_readme", side_effect=update_readme),
+        ):
+            self.docs.main()
 
         self.assertEqual(calls[0][0], "run")
         self.assertEqual(calls[1], ("write_card_svg",))

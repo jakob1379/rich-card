@@ -9,7 +9,6 @@ from pathlib import Path
 
 import click
 
-
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
 SOURCE = ROOT / "src"
@@ -95,8 +94,7 @@ def _run(command: list[str], env: dict[str, str]) -> str:
             env=env,
             text=True,
             check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=COMMAND_TIMEOUT_SECONDS,
         )  # nosec B603 - command is a fixed internal list, not user input.
     except subprocess.TimeoutExpired as error:

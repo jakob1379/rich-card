@@ -4,7 +4,6 @@ from pathlib import Path
 
 from rich_card.cli import app
 from rich_card.config import default_config_path
-
 from tests.cli_helpers import PNG_IMAGE, SVG_IMAGE, RichCardsCliTestCase
 
 

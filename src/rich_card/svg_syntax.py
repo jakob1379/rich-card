@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import ClassVar
 
 from pygments import lex
 from pygments.lexers import get_lexer_by_name, guess_lexer_for_filename
@@ -48,7 +49,7 @@ ANSI_CONSOLE = Console(color_system="truecolor", force_terminal=True)
 class MonokaiExtendedStyle(Style):
     background_color = DEFAULT_RENDERER.card_fill
     default_style = ""
-    styles = {
+    styles: ClassVar = {
         Token: "#f8f8f2",
         Text: "#f8f8f2",
         Error: "#f8f8f2 bg:#f92672",

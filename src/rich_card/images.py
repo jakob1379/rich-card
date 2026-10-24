@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
 import math
 import re
 import struct
+from dataclasses import dataclass
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
