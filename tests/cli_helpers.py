@@ -31,7 +31,7 @@ SVG_IMAGE = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 2"><rect wi
 
 class RichCardsCliTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        self.runner = CliRunner()
+        self.runner = CliRunner(env={"COLUMNS": "200"})
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.output = Path(self.tmp.name) / "card.svg"
