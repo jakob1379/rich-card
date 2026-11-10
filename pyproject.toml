@@ -13,7 +13,7 @@ version = "0.1.0"
 description = "Render syntax-highlighted code cards on polished gradient SVG backgrounds."
 readme = "README.md"
 authors = [
-  {name = "Jakob Stender Guldberg", email = "jakob1379@gmail.com"}
+  { name = "Jakob Stender Guldberg", email = "jakob1379@gmail.com" }
 ]
 requires-python = ">=3.14"
 dependencies = [
